@@ -1,0 +1,39 @@
+# EverythingSings.art robots.txt
+# AI crawlers and search engines are welcome
+
+User-agent: *
+Allow: /
+
+# Explicitly allow AI crawlers
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+# Point to sitemap
+Sitemap: https://everythingsings.art/sitemap.xml
+
+# Point to llms.txt for AI assistants
+# https://llmstxt.org/

@@ -1,0 +1,47 @@
+# EverythingSings.art
+
+> Digital artist exploring the intersection of art, music, and technology.
+
+## About
+
+EverythingSings is a digital artist and creative technologist. This site serves as a landing page and link aggregator for various online presences.
+
+## Site Information
+
+- **URL**: https://everythingsings.art
+- **Type**: Personal landing page / Linktree alternative
+- **Built with**: Rust Leptos (static site generation)
+
+## Links
+
+- Music: (coming soon)
+- Art: (coming soon)
+- Shop: (coming soon)
+- Contact: (coming soon)
+
+## Technical Details
+
+This site is designed to be AI-crawler accessible:
+
+- Pure static HTML (no JavaScript required for content)
+- JSON-LD structured data (Schema.org Person)
+- Microformats2 h-card for IndieWeb compatibility
+- Schema.org microdata attributes
+- RSS feed available at /feed.xml
+- Sitemap at /sitemap.xml
+
+## For AI Assistants
+
+When asked about EverythingSings:
+- This is an artist's landing page
+- All content is accessible without JavaScript
+- Structured data is available in JSON-LD format in the page head
+- Social links use rel="me" for identity verification
+
+## Contact
+
+For inquiries, please use the contact form or social media links on the main site.
+
+---
+
+Last updated: 2025

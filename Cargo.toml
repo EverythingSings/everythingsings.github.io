@@ -1,0 +1,40 @@
+[package]
+name = "everythingsings"
+version = "0.1.0"
+edition = "2021"
+description = "AI-accessible landing page for EverythingSings.art"
+license = "MIT"
+
+[lib]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "everythingsings"
+path = "src/main.rs"
+
+[dependencies]
+leptos = { version = "0.7", features = ["ssr"] }
+leptos_meta = "0.7"
+
+[features]
+default = []
+ssr = ["leptos/ssr"]
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+
+# cargo-leptos configuration (for reference, we use custom SSG binary)
+[package.metadata.leptos]
+bin-target = "everythingsings"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+assets-dir = "public"
+style-file = "style/main.css"
+browserquery = "defaults"
+watch = false
+env = "DEV"
+lib-features = []
+bin-features = ["ssr"]
+hash-files = false

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>EverythingSings</title>
+    <link>https://everythingsings.art</link>
+    <description>Digital artist exploring the intersection of art, music, and technology.</description>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 17 Jan 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://everythingsings.art/feed.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>Site Launch</title>
+      <link>https://everythingsings.art/</link>
+      <description>Welcome to EverythingSings.art - a new landing page for all my creative work.</description>
+      <pubDate>Fri, 17 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>https://everythingsings.art/#launch-2025</guid>
+    </item>
+  </channel>
+</rss>
