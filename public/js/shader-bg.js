@@ -130,22 +130,43 @@
   }
 
   // Show shader indicator
-  function showIndicator() {
+  // duration: milliseconds to show (0 = use default, -1 = persistent)
+  function showIndicator(duration = 0) {
     let indicator = document.getElementById('shader-indicator');
 
     if (!indicator) {
       indicator = document.createElement('div');
       indicator.id = 'shader-indicator';
+      indicator.setAttribute('role', 'button');
+      indicator.setAttribute('aria-label', 'Change shader background (tap to cycle)');
+      indicator.setAttribute('tabindex', '0');
       document.body.appendChild(indicator);
+
+      // Click/tap to cycle shaders
+      indicator.addEventListener('click', function(e) {
+        e.preventDefault();
+        switchShader(currentShader + 1);
+      });
+
+      // Keyboard support for accessibility
+      indicator.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          switchShader(currentShader + 1);
+        }
+      });
     }
 
     indicator.textContent = (currentShader + 1).toString();
     indicator.classList.add('visible');
 
     clearTimeout(indicatorTimeout);
-    indicatorTimeout = setTimeout(() => {
-      indicator.classList.remove('visible');
-    }, 2000);
+    if (duration !== -1) {
+      const hideDelay = duration > 0 ? duration : 2000;
+      indicatorTimeout = setTimeout(() => {
+        indicator.classList.remove('visible');
+      }, hideDelay);
+    }
   }
 
   // Handle resize
@@ -180,6 +201,40 @@
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     requestAnimationFrame(render);
+  }
+
+  // Touch swipe support for mobile
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const SWIPE_THRESHOLD = 50;
+
+  function handleTouchStart(e) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e) {
+    if (!touchStartX || !touchStartY) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+
+    const deltaX = touchEndX - touchStartX;
+    const deltaY = touchEndY - touchStartY;
+
+    // Only trigger if horizontal swipe is dominant and exceeds threshold
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
+      if (deltaX > 0) {
+        // Swipe right - previous shader
+        switchShader(currentShader - 1);
+      } else {
+        // Swipe left - next shader
+        switchShader(currentShader + 1);
+      }
+    }
+
+    touchStartX = 0;
+    touchStartY = 0;
   }
 
   // Handle keyboard input
@@ -248,6 +303,17 @@
 
     window.addEventListener('resize', resize);
     window.addEventListener('keydown', handleKeydown);
+
+    // Touch swipe support
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    // Show indicator longer on first load for touch device discoverability
+    const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (isTouchDevice) {
+      // Override the initial indicator with longer duration (4 seconds)
+      setTimeout(() => showIndicator(4000), 200);
+    }
 
     render();
   }
