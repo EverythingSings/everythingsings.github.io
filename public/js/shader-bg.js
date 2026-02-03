@@ -1,8 +1,9 @@
 /**
  * Shader Background Manager
  *
- * Manages WebGL shader backgrounds with six toggleable generative patterns.
- * Respects prefers-reduced-motion and persists user preference.
+ * Manages WebGL shader backgrounds with eleven toggleable generative patterns.
+ * Starts with a random shader on first visit, then persists user preference.
+ * Respects prefers-reduced-motion.
  */
 (function() {
   'use strict';
@@ -12,7 +13,7 @@
     return;
   }
 
-  const SHADER_NAMES = ['flow', 'fbm', 'voronoi', 'waves', 'neural', 'plasma'];
+  const SHADER_NAMES = ['flow', 'fbm', 'voronoi', 'waves', 'neural', 'plasma', 'aurora', 'ripple', 'spiral', 'matrix', 'smoke'];
   const SHADER_COUNT = SHADER_NAMES.length;
   const STORAGE_KEY = 'shader-preference';
 
@@ -243,25 +244,24 @@
       return;
     }
 
+    // Number keys 1-9 select shaders 0-8, 0 selects shader 9, - selects shader 10
+    if (e.key >= '1' && e.key <= '9') {
+      const index = parseInt(e.key, 10) - 1;
+      if (index < SHADER_COUNT) {
+        switchShader(index);
+      }
+      return;
+    }
+    if (e.key === '0' && SHADER_COUNT > 9) {
+      switchShader(9);
+      return;
+    }
+    if (e.key === '-' && SHADER_COUNT > 10) {
+      switchShader(10);
+      return;
+    }
+
     switch (e.key) {
-      case '1':
-        switchShader(0);
-        break;
-      case '2':
-        switchShader(1);
-        break;
-      case '3':
-        switchShader(2);
-        break;
-      case '4':
-        switchShader(3);
-        break;
-      case '5':
-        switchShader(4);
-        break;
-      case '6':
-        switchShader(5);
-        break;
       case ' ':
         e.preventDefault();
         switchShader(currentShader + 1);
@@ -291,11 +291,17 @@
     setupGeometry();
     resize();
 
-    // Load saved preference or default to 0
+    // Load saved preference or start with random shader
     const saved = localStorage.getItem(STORAGE_KEY);
-    let initialShader = saved !== null ? parseInt(saved, 10) : 0;
-    if (isNaN(initialShader) || initialShader < 0 || initialShader >= SHADER_COUNT) {
-      initialShader = 0;
+    let initialShader;
+    if (saved !== null) {
+      initialShader = parseInt(saved, 10);
+      if (isNaN(initialShader) || initialShader < 0 || initialShader >= SHADER_COUNT) {
+        initialShader = Math.floor(Math.random() * SHADER_COUNT);
+      }
+    } else {
+      // First visit: random shader
+      initialShader = Math.floor(Math.random() * SHADER_COUNT);
     }
 
     startTime = performance.now();
