@@ -44,6 +44,16 @@ const LINK_GROUPS: &[LinkGroup] = &[
         name: "Create",
         links: &[
             LinkEntry {
+                label: "Art Gallery",
+                href: "/art/",
+                description: Some("AI art series and collections"),
+            },
+            LinkEntry {
+                label: "Gearpunk",
+                href: "https://everythingsings.art/gearpunk-reader/",
+                description: Some("Hard sci-fi novella — draft in progress"),
+            },
+            LinkEntry {
                 label: "Lumimenta",
                 href: "https://lumimenta.everythingsings.art",
                 description: Some("Physical trading card photography series"),
@@ -319,7 +329,7 @@ mod tests {
 
     #[test]
     fn total_links_count() {
-        assert_eq!(total_link_count(), 10, "Should have 10 profile links total");
+        assert_eq!(total_link_count(), 12, "Should have 12 profile links total");
     }
 
     #[test]
