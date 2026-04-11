@@ -15,6 +15,8 @@ path = "src/main.rs"
 [dependencies]
 leptos = { version = "0.7", features = ["ssr"] }
 leptos_meta = "0.7"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
 
 [features]
 default = []
@@ -25,7 +27,7 @@ lto = true
 opt-level = "z"
 codegen-units = 1
 
-# cargo-leptos configuration (for reference, we use custom SSG binary)
+# Metadata for tooling (project uses custom SSG binary, not cargo-leptos)
 [package.metadata.leptos]
 bin-target = "everythingsings"
 site-root = "target/site"

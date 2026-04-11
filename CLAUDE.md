@@ -4,36 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EverythingSings.art is a self-hosted, AI-crawler-accessible landing page replacing Linktree. Built with Rust Leptos in islands mode for static site generation, deployed to GitHub Pages.
+EverythingSings.art is a self-hosted, AI-crawler-accessible landing page replacing Linktree. Built with Rust Leptos for pure server-side static site generation, deployed to GitHub Pages.
 
-**Core principle:** Machine-first, human-enhanced. AI crawlers cannot execute JavaScript, so all content must be accessible as static HTML.
+**Core principle:** Machine-first, human-enhanced. AI crawlers cannot execute JavaScript, so all content must be accessible as static HTML. This project deliberately uses **zero JavaScript/WASM** to ensure 100% crawler accessibility.
 
 ## Build Commands
 
 ```bash
-# Install build tool (first time only)
-cargo install cargo-leptos
-
-# Development with hot reload
-cargo leptos watch
+# Development: build and generate static site
+cargo build && ./target/debug/everythingsings --generate-static
 
 # Production build
-cargo leptos build --release
+cargo build --release && ./target/release/everythingsings --generate-static
 
-# Generate static site (run after production build)
-./target/release/everythingsings --generate-static
+# Serve locally (after generating)
+python -m http.server 8080 --directory target/site
 ```
 
 Output goes to `target/site/` for deployment.
 
 ## Architecture
 
-### Leptos Islands Mode
+### Pure SSR (No WASM/JavaScript)
 
 - All `#[component]` functions render **server-side only** as pure HTML
-- Only `#[island]` marked code compiles to WASM and hydrates client-side
-- Target: ~24KB WASM stub (zero islands) vs 274-355KB full hydration
+- No `#[island]` components - intentionally zero client-side JavaScript
+- Custom SSG binary generates complete static HTML at build time
 - Components can use `std::fs` directly since they only run at build time
+- `crate-type = ["rlib"]` (not cdylib) - no WASM compilation needed
 
 ### Semantic Markup Layers (All Three Required)
 
@@ -69,4 +67,4 @@ curl https://everythingsings.art
 
 ## Deployment
 
-GitHub Actions workflow builds with cargo-leptos and deploys `target/site/` to GitHub Pages. DNS configured for everythingsings.art domain.
+GitHub Actions workflow runs `cargo build --release` then `./target/release/everythingsings --generate-static` and deploys `target/site/` to GitHub Pages. DNS configured for everythingsings.art domain.

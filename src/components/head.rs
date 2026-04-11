@@ -22,7 +22,17 @@ use crate::config::{AVATAR_PATH, SITE_DESCRIPTION, SITE_NAME, SITE_URL};
 const THEME_COLOR: &str = "#0d0d0d";
 use leptos::prelude::*;
 
-/// Generates the JSON-LD structured data for the page.
+/// Per-page metadata for head generation.
+pub struct PageMeta {
+    pub title: String,
+    pub description: String,
+    pub canonical_url: String,
+    pub og_type: String,
+    pub og_image: String,
+    pub json_ld: String,
+}
+
+/// Generates the JSON-LD structured data for the homepage.
 ///
 /// Returns a Schema.org Person object as a JSON string.
 pub fn generate_json_ld() -> String {
@@ -43,6 +53,45 @@ pub fn generate_json_ld() -> String {
     )
 }
 
+/// Generates the complete `<head>` element for a given page.
+pub fn generate_head_html_for(meta: &PageMeta) -> String {
+    format!(
+        r#"<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{title}</title>
+<meta name="description" content="{description}" />
+<link rel="canonical" href="{url}" />
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="manifest" href="/site.webmanifest" />
+<meta name="theme-color" content="{theme}" />
+<meta property="og:type" content="{og_type}" />
+<meta property="og:title" content="{title}" />
+<meta property="og:description" content="{description}" />
+<meta property="og:url" content="{url}" />
+<meta property="og:image" content="{og_image}" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="{title}" />
+<meta name="twitter:description" content="{description}" />
+<meta name="twitter:image" content="{og_image}" />
+<link rel="alternate" type="application/rss+xml" title="{name} RSS Feed" href="/feed.xml" />
+<script type="application/ld+json">{json_ld}</script>
+<link rel="stylesheet" href="/main.css" />
+<script src="/js/shader-bg.js" defer></script>
+</head>"#,
+        title = meta.title,
+        description = meta.description,
+        url = meta.canonical_url,
+        og_type = meta.og_type,
+        og_image = meta.og_image,
+        theme = THEME_COLOR,
+        name = SITE_NAME,
+        json_ld = meta.json_ld,
+    )
+}
+
 /// Generates the complete `<head>` element content as HTML string.
 ///
 /// Returns the full head HTML including Open Graph meta tags.
@@ -52,39 +101,14 @@ pub fn generate_head_html() -> String {
     let json_ld = generate_json_ld();
     let full_avatar_url = format!("{}{}", SITE_URL, AVATAR_PATH);
 
-    format!(
-        r#"<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>{name} | Digital Artist</title>
-<meta name="description" content="{description}" />
-<link rel="canonical" href="{url}" />
-<link rel="icon" href="/favicon.ico" sizes="32x32" />
-<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-<link rel="manifest" href="/site.webmanifest" />
-<meta name="theme-color" content="{theme}" />
-<meta property="og:type" content="profile" />
-<meta property="og:title" content="{name}" />
-<meta property="og:description" content="{description}" />
-<meta property="og:url" content="{url}" />
-<meta property="og:image" content="{avatar}" />
-<meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="{name}" />
-<meta name="twitter:description" content="{description}" />
-<meta name="twitter:image" content="{avatar}" />
-<link rel="alternate" type="application/rss+xml" title="{name} RSS Feed" href="/feed.xml" />
-<script type="application/ld+json">{json_ld}</script>
-<link rel="stylesheet" href="/main.css" />
-<script src="/js/shader-bg.js" defer></script>
-</head>"#,
-        name = SITE_NAME,
-        description = SITE_DESCRIPTION,
-        url = SITE_URL,
-        avatar = full_avatar_url,
-        theme = THEME_COLOR,
-        json_ld = json_ld,
-    )
+    generate_head_html_for(&PageMeta {
+        title: format!("{} | Digital Artist", SITE_NAME),
+        description: SITE_DESCRIPTION.to_string(),
+        canonical_url: SITE_URL.to_string(),
+        og_type: "profile".to_string(),
+        og_image: full_avatar_url,
+        json_ld,
+    })
 }
 
 /// The `<head>` component placeholder.

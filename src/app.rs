@@ -7,7 +7,7 @@
 //! in main.rs because Leptos's view! macro doesn't support the `property`
 //! attribute needed for Open Graph meta tags.
 
-use crate::components::{LinkList, ProfileCard};
+use crate::components::{LinkList, Nav, ProfileCard};
 use leptos::prelude::*;
 
 /// The root application component.
@@ -36,6 +36,7 @@ pub fn Body() -> impl IntoView {
                 <style>{"body { background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%); }"}</style>
             </noscript>
             <main class="container">
+                <Nav />
                 <ProfileCard />
                 <LinkList />
             </main>

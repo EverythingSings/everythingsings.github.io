@@ -13,6 +13,7 @@
 //! - Designed for ~24KB WASM stub with zero islands
 
 pub mod app;
+pub mod art;
 pub mod components;
 
 pub use app::App;
