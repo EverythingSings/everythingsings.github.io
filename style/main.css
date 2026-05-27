@@ -127,17 +127,6 @@
   padding: 0;
 }
 
-/* Hero image above the profile card */
-.site-hero {
-  display: block;
-  width: 100%;
-  max-width: 320px;
-  height: auto;
-  margin: var(--spacing-md) auto;
-  border-radius: var(--border-radius);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-}
-
 html {
   font-size: var(--font-size-base);
   -webkit-text-size-adjust: 100%;
