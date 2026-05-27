@@ -37,6 +37,7 @@ pub fn Body() -> impl IntoView {
             </noscript>
             <main class="container">
                 <Nav />
+                <img class="site-hero" src="/hero.jpg" alt="" loading="eager" />
                 <ProfileCard />
                 <LinkList />
             </main>

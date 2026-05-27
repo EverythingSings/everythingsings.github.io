@@ -99,14 +99,15 @@ pub fn generate_head_html_for(meta: &PageMeta) -> String {
 /// doesn't support the `property` attribute.
 pub fn generate_head_html() -> String {
     let json_ld = generate_json_ld();
-    let full_avatar_url = format!("{}{}", SITE_URL, AVATAR_PATH);
+    let _full_avatar_url = format!("{}{}", SITE_URL, AVATAR_PATH);
+    let hero_url = format!("{}/hero.jpg", SITE_URL);
 
     generate_head_html_for(&PageMeta {
         title: format!("{} | Digital Artist", SITE_NAME),
         description: SITE_DESCRIPTION.to_string(),
         canonical_url: SITE_URL.to_string(),
         og_type: "profile".to_string(),
-        og_image: full_avatar_url,
+        og_image: hero_url,
         json_ld,
     })
 }
