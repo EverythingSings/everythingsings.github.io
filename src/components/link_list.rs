@@ -28,9 +28,14 @@ pub struct LinkEntry {
 /// Intentionally short. Anything more should live on its own page or sub-domain.
 const LINKS: &[LinkEntry] = &[
     LinkEntry {
+        label: "Networked Art",
+        href: "https://networked.art/everything?action=follow",
+        description: Some("Scarce digital editions on networked.art"),
+    },
+    LinkEntry {
         label: "Shop",
         href: "https://bedim.redbubble.com",
-        description: Some("AI art prints and merchandise on Redbubble"),
+        description: Some("Physical prints and merchandise on Redbubble"),
     },
     LinkEntry {
         label: "GitHub",
@@ -112,8 +117,8 @@ mod tests {
     }
 
     #[test]
-    fn list_has_five_links() {
-        assert_eq!(LINKS.len(), 5);
+    fn list_has_six_links() {
+        assert_eq!(LINKS.len(), 6);
     }
 
     #[test]
@@ -166,9 +171,30 @@ mod tests {
 
     #[test]
     fn links_in_expected_order() {
-        let expected = ["Shop", "GitHub", "Music", "X", "Book Reviews"];
+        let expected = [
+            "Networked Art",
+            "Shop",
+            "GitHub",
+            "Music",
+            "X",
+            "Book Reviews",
+        ];
         for (i, link) in LINKS.iter().enumerate() {
             assert_eq!(link.label, expected[i]);
         }
+    }
+
+    #[test]
+    fn networked_art_link_present() {
+        let html = render_list();
+        assert!(html.contains("networked.art/everything"));
+    }
+
+    #[test]
+    fn shop_and_networked_art_are_differentiated() {
+        let networked = LINKS.iter().find(|l| l.label == "Networked Art").unwrap();
+        let shop = LINKS.iter().find(|l| l.label == "Shop").unwrap();
+        assert!(networked.description.unwrap().contains("digital"));
+        assert!(shop.description.unwrap().contains("Physical"));
     }
 }
