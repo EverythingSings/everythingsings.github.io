@@ -59,8 +59,9 @@ void main() {
   float bands = sin(n * 8.0 + t * 2.0) * 0.5 + 0.5;
   bands = pow(bands, 2.0);
 
-  // Final composition
-  float brightness = n * 0.12 + bands * 0.06 + 0.02;
+  // Keep the field dark enough to reveal the paths instead of flattening to gray.
+  float contours = 1.0 - smoothstep(0.025, 0.09, abs(fract(n * 6.0) - 0.5));
+  float brightness = 0.008 + n * 0.024 + bands * 0.012 + contours * 0.022;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

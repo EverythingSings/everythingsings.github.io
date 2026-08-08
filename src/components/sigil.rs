@@ -5,6 +5,7 @@
 use leptos::prelude::*;
 
 use super::nav::Nav;
+use super::BackgroundGallery;
 
 /// Generates an SVG path for a Lissajous curve.
 /// x(t) = A * sin(a*t + delta), y(t) = B * sin(b*t)
@@ -33,6 +34,7 @@ pub fn SigilPage() -> impl IntoView {
     view! {
         <body itemscope itemtype="https://schema.org/WebPage">
             <canvas id="shader-canvas" aria-hidden="true"></canvas>
+            <BackgroundGallery />
             <noscript>
                 <style>"#shader-canvas { display: none; }"</style>
             </noscript>
@@ -77,6 +79,12 @@ mod tests {
         let html = SigilPage().to_html();
         assert!(html.contains("<svg"));
         assert!(html.contains("Lissajous"));
+    }
+
+    #[test]
+    fn sigil_page_has_background_gallery() {
+        let html = SigilPage().to_html();
+        assert!(html.contains("id=\"background-controls\""));
     }
 
     #[test]

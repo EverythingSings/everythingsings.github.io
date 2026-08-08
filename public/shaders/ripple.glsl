@@ -52,12 +52,9 @@ void main() {
   );
   waves += ripple(p, c5, t * 0.95, 3.5, 24.0) * 0.7;
 
-  // Normalize and apply contrast
-  waves = waves * 0.2;
-  waves = waves * 0.5 + 0.5; // Map to 0-1
-
-  // Add subtle caustic-like highlights
-  float caustic = waves * waves;
+  // Pull narrow ridges from the interference signal instead of lifting the field to gray.
+  float signal = waves * 0.35;
+  float ridge = pow(0.5 + 0.5 * sin(signal * 7.0), 10.0);
 
   // Edge darkening (vignette)
   vec2 center = vec2(aspect * 0.5, 0.5);
@@ -65,7 +62,7 @@ void main() {
   vignette = clamp(vignette, 0.0, 1.0);
 
   // Final composition
-  float brightness = (waves * 0.08 + caustic * 0.04) * vignette + 0.02;
+  float brightness = 0.008 + (abs(signal) * 0.018 + ridge * 0.042) * vignette;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

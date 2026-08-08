@@ -67,7 +67,7 @@ void main() {
   float edges = edge1 * 0.7 + edge2 * 0.3;
 
   // Combine
-  float brightness = cell * 0.08 + edges * 0.1 + 0.02;
+  float brightness = 0.008 + cell * 0.024 + edges * 0.042;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

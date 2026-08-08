@@ -1,333 +1,460 @@
 /**
- * Shader Background Manager
- *
- * Manages WebGL shader backgrounds with eleven toggleable generative patterns.
- * Starts with a random shader on first visit, then persists user preference.
- * Respects prefers-reduced-motion.
+ * EverythingSings background gallery.
+ * Progressive enhancement: the page remains complete if WebGL or JavaScript fails.
  */
-(function() {
+(function () {
   'use strict';
 
-  // Exit early if reduced motion is preferred
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return;
-  }
+  const SHADERS = [
+    { id: 'flow', name: 'Flow' },
+    { id: 'fbm', name: 'Cloud Field' },
+    { id: 'voronoi', name: 'Voronoi' },
+    { id: 'waves', name: 'Waves' },
+    { id: 'neural', name: 'Neural' },
+    { id: 'plasma', name: 'Plasma' },
+    { id: 'aurora', name: 'Aurora' },
+    { id: 'ripple', name: 'Ripple' },
+    { id: 'spiral', name: 'Spiral' },
+    { id: 'matrix', name: 'Matrix' },
+    { id: 'smoke', name: 'Smoke' },
+    { id: 'strata', name: 'Strata' },
+    { id: 'eclipse', name: 'Eclipse' },
+    { id: 'lattice', name: 'Lattice' },
+    { id: 'rain', name: 'Night Rain' },
+    { id: 'cells', name: 'Cells' },
+    { id: 'moire', name: 'Moire' },
+    { id: 'embers', name: 'Embers' },
+    { id: 'dunes', name: 'Dunes' },
+    { id: 'filament', name: 'Filament' },
+    { id: 'halftone', name: 'Halftone' },
+    { id: 'topography', name: 'Topography' },
+    { id: 'rorschach', name: 'Rorschach' },
+    { id: 'constellation', name: 'Constellation' },
+    { id: 'caustics', name: 'Caustics' },
+    { id: 'scan', name: 'Slow Scan' },
+    { id: 'iris', name: 'Iris' },
+    { id: 'paper', name: 'Paper Grain' },
+    { id: 'kintsugi', name: 'Kintsugi' },
+    { id: 'tesseract', name: 'Tesseract' },
+    { id: 'pulse', name: 'Deep Pulse' },
+    { id: 'magnetosphere', name: 'Magnetosphere' },
+    { id: 'seismic', name: 'Seismic' },
+    { id: 'weaver', name: 'Weaver' },
+    { id: 'cathedral', name: 'Cathedral' },
+    { id: 'driftice', name: 'Drift Ice' },
+    { id: 'phyllotaxis', name: 'Phyllotaxis' },
+    { id: 'ferrofluid', name: 'Ferrofluid' },
+    { id: 'braid', name: 'Five Strands' },
+    { id: 'barcode', name: 'Barcode' },
+    { id: 'tidepool', name: 'Tidepool' },
+    { id: 'quipu', name: 'Quipu' },
+    { id: 'circuit', name: 'Circuit' },
+    { id: 'sundial', name: 'Sundial' },
+    { id: 'murmuration', name: 'Murmuration' },
+    { id: 'lumen', name: 'Lumen' },
+    { id: 'isobars', name: 'Isobars' },
+    { id: 'morse', name: 'Morse' },
+    { id: 'orbital', name: 'Orbital' },
+    { id: 'pollen', name: 'Pollen' },
+    { id: 'mercator', name: 'Soft Mercator' },
+    { id: 'gravitywell', name: 'Gravity Well' },
+    { id: 'tally', name: 'Tally' },
+    { id: 'aeolian', name: 'Aeolian' },
+    { id: 'sandglass', name: 'Sandglass' },
+    { id: 'mica', name: 'Mica' },
+    { id: 'chladni', name: 'Chladni' },
+    { id: 'radar', name: 'Radar' },
+    { id: 'spectrogram', name: 'Spectrogram' },
+    { id: 'vectorfield', name: 'Vector Field' },
+    { id: 'catenary', name: 'Catenary' },
+    { id: 'braille', name: 'Braille' },
+    { id: 'suture', name: 'Suture' },
+    { id: 'clockwork', name: 'Clockwork' },
+    { id: 'chromatogram', name: 'Chromatogram' },
+    { id: 'anemometer', name: 'Anemometer' },
+    { id: 'rosette', name: 'Rosette' },
+    { id: 'telemetry', name: 'Telemetry' },
+    { id: 'perforation', name: 'Perforation' },
+    { id: 'bellows', name: 'Bellows' },
+    { id: 'transit', name: 'Transit' }
+  ];
 
-  const SHADER_NAMES = ['flow', 'fbm', 'voronoi', 'waves', 'neural', 'plasma', 'aurora', 'ripple', 'spiral', 'matrix', 'smoke'];
-  const SHADER_COUNT = SHADER_NAMES.length;
-  const STORAGE_KEY = 'shader-preference';
+  const STORAGE_KEY = 'shader-preference-v2';
+  const LEGACY_STORAGE_KEY = 'shader-preference';
+  const ASSET_VERSION = '2026-08-08-09';
+  const MAX_CACHED_PROGRAMS = 12;
+  const MAX_RENDER_PIXELS = 4000000;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const vertexSource = [
+    'attribute vec2 a_position;',
+    'void main() { gl_Position = vec4(a_position, 0.0, 1.0); }'
+  ].join('\n');
 
-  let canvas, gl, program, startTime;
-  let currentShader = 0;
-  let indicatorTimeout = null;
-  let shaderSources = {};
+  let canvas;
+  let gl;
+  let program;
+  let geometry;
+  let frame;
+  let startedAt = performance.now();
+  let currentIndex = 0;
+  let requestSerial = 0;
+  let paused = false;
+  let pausedAt = 0;
+  let uniforms = { time: null, resolution: null };
+  const sourceCache = new Map();
+  const programCache = new Map();
 
-  // Vertex shader (shared by all fragment shaders)
-  const vertexShaderSource = `
-    attribute vec2 a_position;
-    void main() {
-      gl_Position = vec4(a_position, 0.0, 1.0);
+  const wrap = (index) => (index % SHADERS.length + SHADERS.length) % SHADERS.length;
+
+  function readPreference(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.warn('Background preference storage unavailable:', error);
+      return null;
     }
-  `;
-
-  // Load shader source from file (with cache bust)
-  async function loadShaderSource(name) {
-    const cacheBust = Date.now();
-    const response = await fetch(`/shaders/${name}.glsl?v=${cacheBust}`);
-    return response.text();
   }
 
-  // Compile a shader
-  function compileShader(type, source) {
+  function savePreference(id) {
+    try {
+      localStorage.setItem(STORAGE_KEY, id);
+    } catch (error) {
+      console.warn('Background preference could not be saved:', error);
+    }
+  }
+
+  function compile(type, source) {
     const shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
-
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+      console.error('Background shader compile error:', gl.getShaderInfoLog(shader));
       gl.deleteShader(shader);
       return null;
     }
     return shader;
   }
 
-  // Create shader program
-  function createProgram(fragmentSource) {
-    const vertexShader = compileShader(gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
-
-    if (!vertexShader || !fragmentShader) return null;
-
-    const prog = gl.createProgram();
-    gl.attachShader(prog, vertexShader);
-    gl.attachShader(prog, fragmentShader);
-    gl.linkProgram(prog);
-
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error('Program link error:', gl.getProgramInfoLog(prog));
-      gl.deleteProgram(prog);
+  function buildProgram(fragmentSource) {
+    const vertex = compile(gl.VERTEX_SHADER, vertexSource);
+    const fragment = compile(gl.FRAGMENT_SHADER, fragmentSource);
+    if (!vertex || !fragment) {
+      if (vertex) gl.deleteShader(vertex);
+      if (fragment) gl.deleteShader(fragment);
       return null;
     }
 
-    // Clean up individual shaders after linking
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
+    const nextProgram = gl.createProgram();
+    gl.attachShader(nextProgram, vertex);
+    gl.attachShader(nextProgram, fragment);
+    gl.linkProgram(nextProgram);
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
 
-    return prog;
+    if (!gl.getProgramParameter(nextProgram, gl.LINK_STATUS)) {
+      console.error('Background shader link error:', gl.getProgramInfoLog(nextProgram));
+      gl.deleteProgram(nextProgram);
+      return null;
+    }
+    return nextProgram;
   }
 
-  // Set up fullscreen quad geometry
-  function setupGeometry() {
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1, 1, -1, -1, 1,
-      -1, 1, 1, -1, 1, 1
-    ]), gl.STATIC_DRAW);
+  function rememberProgram(id, nextProgram) {
+    programCache.delete(id);
+    programCache.set(id, nextProgram);
+    while (programCache.size > MAX_CACHED_PROGRAMS) {
+      const oldestId = programCache.keys().next().value;
+      const oldestProgram = programCache.get(oldestId);
+      programCache.delete(oldestId);
+      if (oldestProgram !== program) gl.deleteProgram(oldestProgram);
+    }
   }
 
-  // Switch to a specific shader (with retry limit to prevent infinite loops)
-  async function switchShader(index, retryCount = 0) {
-    // Prevent infinite loop if all shaders fail
-    if (retryCount >= SHADER_COUNT) {
-      console.error('All shaders failed to compile');
-      return;
+  async function sourceFor(shader) {
+    if (sourceCache.has(shader.id)) return sourceCache.get(shader.id);
+    const response = await fetch(`/shaders/${shader.id}.glsl?v=${ASSET_VERSION}`);
+    if (!response.ok) throw new Error(`${response.status} loading ${shader.id}`);
+    const source = await response.text();
+    sourceCache.set(shader.id, source);
+    return source;
+  }
+
+  function updateControls() {
+    const shader = SHADERS[currentIndex];
+    const name = document.getElementById('background-current');
+    const status = document.getElementById('background-status');
+    const options = document.querySelectorAll('.background-option');
+    if (name) name.textContent = shader.name;
+    if (status) status.textContent = `Background: ${shader.name}, ${currentIndex + 1} of ${SHADERS.length}`;
+    let visibleTabStop = false;
+    options.forEach((option, index) => {
+      const active = index === currentIndex;
+      option.classList.toggle('is-active', active);
+      option.setAttribute('aria-selected', active ? 'true' : 'false');
+      const activeAndVisible = active && !option.hidden;
+      option.tabIndex = activeAndVisible ? 0 : -1;
+      if (activeAndVisible) visibleTabStop = true;
+    });
+    if (!visibleTabStop) {
+      const firstVisible = Array.from(options).find((option) => !option.hidden);
+      if (firstVisible) firstVisible.tabIndex = 0;
     }
+  }
 
-    // Wrap around
-    index = ((index % SHADER_COUNT) + SHADER_COUNT) % SHADER_COUNT;
+  async function select(index, attempts = 0) {
+    if (!gl || attempts >= SHADERS.length) return;
+    const targetIndex = wrap(index);
+    const serial = ++requestSerial;
+    const shader = SHADERS[targetIndex];
 
-    const name = SHADER_NAMES[index];
+    try {
+      const source = await sourceFor(shader);
+      if (serial !== requestSerial) return;
+      let nextProgram = programCache.get(shader.id);
+      if (!nextProgram) {
+        nextProgram = buildProgram(source);
+      }
+      if (!nextProgram) {
+        await select(targetIndex + 1, attempts + 1);
+        return;
+      }
+      program = nextProgram;
+      rememberProgram(shader.id, nextProgram);
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
+      const position = gl.getAttribLocation(program, 'a_position');
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      uniforms = {
+        time: gl.getUniformLocation(program, 'u_time'),
+        resolution: gl.getUniformLocation(program, 'u_resolution')
+      };
 
-    if (!shaderSources[name]) {
-      shaderSources[name] = await loadShaderSource(name);
+      currentIndex = targetIndex;
+      savePreference(shader.id);
+      updateControls();
+      if (paused) render(performance.now());
+    } catch (error) {
+      console.warn(`Background "${shader.name}" unavailable:`, error);
+      if (serial === requestSerial) await select(targetIndex + 1, attempts + 1);
     }
+  }
 
-    // Create new program BEFORE deleting old one
-    const newProgram = createProgram(shaderSources[name]);
-    if (!newProgram) {
-      // Shader failed - skip to next shader automatically
-      console.warn(`Shader "${name}" failed to compile, skipping...`);
-      switchShader(index + 1, retryCount + 1);
-      return;
+  function resize() {
+    if (!gl) return;
+    const cssPixels = Math.max(1, window.innerWidth * window.innerHeight);
+    const pixelBudgetScale = Math.sqrt(MAX_RENDER_PIXELS / cssPixels);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2, pixelBudgetScale);
+    const width = Math.max(1, Math.round(window.innerWidth * dpr));
+    const height = Math.max(1, Math.round(window.innerHeight * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      gl.viewport(0, 0, width, height);
     }
+  }
 
-    // Only delete old program after new one succeeds
+  function revealActiveOption(list) {
+    const active = list.querySelector('.background-option.is-active:not([hidden])');
+    if (!active) return;
+    const itemTop = active.offsetTop - list.offsetTop;
+    const centered = itemTop - (list.clientHeight - active.offsetHeight) / 2;
+    list.scrollTop = Math.max(0, centered);
+  }
+
+  function setupGraphics() {
+    gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'low-power' });
+    if (!gl) return false;
+    geometry = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+    return true;
+  }
+
+  function render(now) {
     if (program) {
-      gl.deleteProgram(program);
+      gl.useProgram(program);
+      if (uniforms.time !== null) gl.uniform1f(uniforms.time, (now - startedAt) / 1000);
+      if (uniforms.resolution !== null) gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
-
-    program = newProgram;
-    gl.useProgram(program);
-
-    // Set up position attribute
-    const positionLoc = gl.getAttribLocation(program, 'a_position');
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
-
-    currentShader = index;
-    localStorage.setItem(STORAGE_KEY, index.toString());
-    showIndicator();
+    if (!paused) frame = requestAnimationFrame(render);
   }
 
-  // Show shader indicator
-  // duration: milliseconds to show (0 = use default, -1 = persistent)
-  function showIndicator(duration = 0) {
-    let indicator = document.getElementById('shader-indicator');
+  function setPanel(open, returnFocus = false) {
+    const tab = document.getElementById('background-tab');
+    const panel = document.getElementById('background-panel');
+    if (!tab || !panel) return;
+    tab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    panel.hidden = !open;
+    document.body.classList.toggle('background-panel-open', open);
+    if (open) {
+      const active = panel.querySelector('.background-option.is-active');
+      if (active) {
+        active.focus({ preventScroll: true });
+        const list = document.getElementById('background-list');
+        revealActiveOption(list);
+      }
+    } else if (returnFocus) {
+      tab.focus({ preventScroll: true });
+    }
+  }
 
-    if (!indicator) {
-      indicator = document.createElement('div');
-      indicator.id = 'shader-indicator';
-      indicator.setAttribute('role', 'button');
-      indicator.setAttribute('aria-label', 'Change shader background (tap to cycle)');
-      indicator.setAttribute('tabindex', '0');
-      document.body.appendChild(indicator);
+  function buildControls() {
+    const tab = document.getElementById('background-tab');
+    const panel = document.getElementById('background-panel');
+    const list = document.getElementById('background-list');
+    if (!tab || !panel || !list) return;
 
-      // Click/tap to cycle shaders
-      indicator.addEventListener('click', function(e) {
-        e.preventDefault();
-        switchShader(currentShader + 1);
+    const count = document.getElementById('background-count');
+    if (count) count.textContent = `${SHADERS.length} studies`;
+
+    list.replaceChildren(...SHADERS.map((shader, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'background-option';
+      button.setAttribute('role', 'option');
+      button.dataset.index = index.toString();
+      button.dataset.name = shader.name.toLocaleLowerCase();
+      button.innerHTML = `<span class="background-swatch swatch-${shader.id}" aria-hidden="true"></span><span>${shader.name}</span>`;
+      button.addEventListener('click', () => select(index));
+      button.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          select(index);
+          return;
+        }
+        if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const visible = Array.from(list.children).filter((option) => !option.hidden);
+        const visibleIndex = visible.indexOf(button);
+        let next = visibleIndex;
+        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = (visibleIndex + 1) % visible.length;
+        if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = (visibleIndex - 1 + visible.length) % visible.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = visible.length - 1;
+        visible[next].focus();
       });
+      return button;
+    }));
 
-      // Keyboard support for accessibility
-      indicator.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          switchShader(currentShader + 1);
+    const filter = document.getElementById('background-filter');
+    const empty = document.getElementById('background-empty');
+    filter.addEventListener('input', () => {
+      const query = filter.value.trim().toLocaleLowerCase();
+      let visibleCount = 0;
+      const visibleOptions = [];
+      Array.from(list.children).forEach((option) => {
+        option.hidden = query !== '' && !option.dataset.name.includes(query);
+        if (!option.hidden) {
+          visibleCount += 1;
+          visibleOptions.push(option);
         }
       });
-    }
-
-    indicator.textContent = (currentShader + 1).toString();
-    indicator.classList.add('visible');
-
-    clearTimeout(indicatorTimeout);
-    if (duration !== -1) {
-      const hideDelay = duration > 0 ? duration : 2000;
-      indicatorTimeout = setTimeout(() => {
-        indicator.classList.remove('visible');
-      }, hideDelay);
-    }
-  }
-
-  // Handle resize
-  function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x for performance
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-
-    gl.viewport(0, 0, canvas.width, canvas.height);
-  }
-
-  // Animation loop
-  function render() {
-    if (!program) {
-      requestAnimationFrame(render);
-      return;
-    }
-
-    const time = (performance.now() - startTime) / 1000;
-
-    // Set uniforms
-    const timeLoc = gl.getUniformLocation(program, 'u_time');
-    const resLoc = gl.getUniformLocation(program, 'u_resolution');
-
-    if (timeLoc) gl.uniform1f(timeLoc, time);
-    if (resLoc) gl.uniform2f(resLoc, canvas.width, canvas.height);
-
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
-    requestAnimationFrame(render);
-  }
-
-  // Touch swipe support for mobile
-  let touchStartX = 0;
-  let touchStartY = 0;
-  const SWIPE_THRESHOLD = 50;
-
-  function handleTouchStart(e) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }
-
-  function handleTouchEnd(e) {
-    if (!touchStartX || !touchStartY) return;
-
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-
-    const deltaX = touchEndX - touchStartX;
-    const deltaY = touchEndY - touchStartY;
-
-    // Only trigger if horizontal swipe is dominant and exceeds threshold
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
-      if (deltaX > 0) {
-        // Swipe right - previous shader
-        switchShader(currentShader - 1);
+      count.textContent = query ? `${visibleCount} of ${SHADERS.length}` : `${SHADERS.length} studies`;
+      empty.hidden = visibleCount !== 0;
+      if (query === '') {
+        updateControls();
+        revealActiveOption(list);
       } else {
-        // Swipe left - next shader
-        switchShader(currentShader + 1);
+        const focusTarget = visibleOptions.find((option) => option.classList.contains('is-active'))
+          || visibleOptions[0];
+        visibleOptions.forEach((option) => { option.tabIndex = option === focusTarget ? 0 : -1; });
       }
-    }
+    });
+    filter.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowDown') return;
+      const target = Array.from(list.children)
+        .find((option) => !option.hidden && option.tabIndex === 0);
+      if (!target) return;
+      event.preventDefault();
+      target.focus();
+    });
 
-    touchStartX = 0;
-    touchStartY = 0;
+    tab.addEventListener('click', () => setPanel(tab.getAttribute('aria-expanded') !== 'true'));
+    tab.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      setPanel(tab.getAttribute('aria-expanded') !== 'true');
+    });
+    document.getElementById('background-prev').addEventListener('click', () => select(currentIndex - 1));
+    document.getElementById('background-next').addEventListener('click', () => select(currentIndex + 1));
+    document.getElementById('background-shuffle').addEventListener('click', () => {
+      const offset = 1 + Math.floor(Math.random() * (SHADERS.length - 1));
+      select(currentIndex + offset);
+    });
+    document.getElementById('background-motion').addEventListener('click', (event) => {
+      const button = event.currentTarget;
+      paused = !paused;
+      button.setAttribute('aria-pressed', paused ? 'true' : 'false');
+      button.textContent = paused ? 'Resume motion' : 'Pause motion';
+      if (paused) {
+        pausedAt = performance.now();
+        cancelAnimationFrame(frame);
+      } else {
+        startedAt += performance.now() - pausedAt;
+        frame = requestAnimationFrame(render);
+      }
+    });
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!panel.hidden && !panel.contains(event.target) && !tab.contains(event.target)) setPanel(false);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !panel.hidden) {
+        event.preventDefault();
+        setPanel(false, true);
+        return;
+      }
+      if (event.target.closest('input, textarea, select, button, a')) return;
+      if (event.key === 'ArrowRight') select(currentIndex + 1);
+      if (event.key === 'ArrowLeft') select(currentIndex - 1);
+    });
   }
 
-  // Handle keyboard input
-  function handleKeydown(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-      return;
-    }
-
-    // Number keys 1-9 select shaders 0-8, 0 selects shader 9, - selects shader 10
-    if (e.key >= '1' && e.key <= '9') {
-      const index = parseInt(e.key, 10) - 1;
-      if (index < SHADER_COUNT) {
-        switchShader(index);
-      }
-      return;
-    }
-    if (e.key === '0' && SHADER_COUNT > 9) {
-      switchShader(9);
-      return;
-    }
-    if (e.key === '-' && SHADER_COUNT > 10) {
-      switchShader(10);
-      return;
-    }
-
-    switch (e.key) {
-      case ' ':
-        e.preventDefault();
-        switchShader(currentShader + 1);
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        switchShader(currentShader + 1);
-        break;
-      case 'ArrowLeft':
-        e.preventDefault();
-        switchShader(currentShader - 1);
-        break;
-    }
+  function initialIndex() {
+    const savedId = readPreference(STORAGE_KEY);
+    const savedIndex = SHADERS.findIndex((shader) => shader.id === savedId);
+    if (savedIndex >= 0) return savedIndex;
+    const legacy = Number.parseInt(readPreference(LEGACY_STORAGE_KEY), 10);
+    if (Number.isInteger(legacy) && legacy >= 0 && legacy < 11) return legacy;
+    return Math.floor(Math.random() * SHADERS.length);
   }
 
-  // Initialize
   async function init() {
     canvas = document.getElementById('shader-canvas');
-    if (!canvas) return;
+    if (!canvas || reducedMotion.matches) return;
+    if (!setupGraphics()) return;
 
-    gl = canvas.getContext('webgl', { alpha: false, antialias: false });
-    if (!gl) {
-      console.warn('WebGL not supported');
-      return;
-    }
-
-    setupGeometry();
+    document.documentElement.classList.add('webgl-backgrounds');
+    buildControls();
     resize();
-
-    // Load saved preference or start with random shader
-    const saved = localStorage.getItem(STORAGE_KEY);
-    let initialShader;
-    if (saved !== null) {
-      initialShader = parseInt(saved, 10);
-      if (isNaN(initialShader) || initialShader < 0 || initialShader >= SHADER_COUNT) {
-        initialShader = Math.floor(Math.random() * SHADER_COUNT);
-      }
-    } else {
-      // First visit: random shader
-      initialShader = Math.floor(Math.random() * SHADER_COUNT);
-    }
-
-    startTime = performance.now();
-    await switchShader(initialShader);
-
-    window.addEventListener('resize', resize);
-    window.addEventListener('keydown', handleKeydown);
-
-    // Touch swipe support
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-    // Show indicator longer on first load for touch device discoverability
-    const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-    if (isTouchDevice) {
-      // Override the initial indicator with longer duration (4 seconds)
-      setTimeout(() => showIndicator(4000), 200);
-    }
-
-    render();
+    await select(initialIndex());
+    frame = requestAnimationFrame(render);
+    window.addEventListener('resize', resize, { passive: true });
+    canvas.addEventListener('webglcontextlost', (event) => {
+      event.preventDefault();
+      cancelAnimationFrame(frame);
+      program = null;
+      programCache.clear();
+    });
+    canvas.addEventListener('webglcontextrestored', async () => {
+      if (!setupGraphics()) return;
+      resize();
+      startedAt = performance.now();
+      await select(currentIndex);
+      if (!paused && !reducedMotion.matches && !document.hidden) frame = requestAnimationFrame(render);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) cancelAnimationFrame(frame);
+      else if (!paused && !reducedMotion.matches) frame = requestAnimationFrame(render);
+    });
+    reducedMotion.addEventListener('change', (event) => {
+      if (event.matches) cancelAnimationFrame(frame);
+      else if (!paused && !document.hidden) frame = requestAnimationFrame(render);
+    });
   }
 
-  // Start when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();

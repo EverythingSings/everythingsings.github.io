@@ -93,8 +93,8 @@ void main() {
   brightness += grid + dot;
 
   // Map to subtle range
-  brightness = brightness * 0.8 + 0.02;
-  brightness = clamp(brightness, 0.0, 0.2);
+  brightness = brightness * 0.24 + 0.008;
+  brightness = clamp(brightness, 0.0, 0.085);
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

@@ -82,7 +82,7 @@ void main() {
   float galaxy = arms * 0.4 + core + stars + trails;
 
   // Map to subtle brightness
-  float brightness = galaxy * 0.12 + 0.02;
+  float brightness = 0.008 + galaxy * 0.16;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

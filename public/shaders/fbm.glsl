@@ -63,7 +63,7 @@ void main() {
   float detail = fbm(p * 8.0 + f * 2.0);
 
   // Map to monochrome with subtle variation
-  float brightness = f * 0.15 + detail * 0.03 + 0.02;
+  float brightness = 0.008 + f * 0.062 + detail * 0.012;
 
   // Add subtle vignette
   float vignette = 1.0 - length(uv - 0.5) * 0.3;

@@ -101,7 +101,7 @@ void main() {
   smoke *= edge;
 
   // Map to subtle brightness
-  float brightness = smoke * 0.12 + 0.02;
+  float brightness = 0.008 + smoke * 0.19;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

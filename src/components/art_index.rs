@@ -4,7 +4,7 @@
 //! Uses Schema.org CollectionPage microdata.
 
 use crate::art::ArtSeries;
-use crate::components::Nav;
+use crate::components::{BackgroundGallery, Nav};
 use leptos::prelude::*;
 
 /// Renders a single series card.
@@ -43,6 +43,7 @@ pub fn ArtIndexPage(series: Vec<ArtSeries>) -> impl IntoView {
     view! {
         <body itemscope itemtype="https://schema.org/CollectionPage">
             <canvas id="shader-canvas" aria-hidden="true"></canvas>
+            <BackgroundGallery />
             <noscript>
                 <style>{"body { background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%); }"}</style>
             </noscript>
@@ -111,5 +112,11 @@ mod tests {
     fn index_has_nav() {
         let html = render_index();
         assert!(html.contains("site-nav"));
+    }
+
+    #[test]
+    fn index_has_background_gallery() {
+        let html = render_index();
+        assert!(html.contains("id=\"background-controls\""));
     }
 }

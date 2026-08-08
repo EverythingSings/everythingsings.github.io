@@ -47,7 +47,7 @@ void main() {
   float mixed = plasma * 0.7 + bands * 0.3;
 
   // Map to subtle brightness
-  float brightness = mixed * 0.14 + 0.02;
+  float brightness = 0.008 + mixed * 0.055;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }

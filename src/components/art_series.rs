@@ -4,7 +4,7 @@
 //! Uses Schema.org ImageGallery + ImageObject microdata.
 
 use crate::art::{ArtImage, ArtSeries};
-use crate::components::Nav;
+use crate::components::{BackgroundGallery, Nav};
 use leptos::prelude::*;
 
 /// Renders a single image figure.
@@ -41,6 +41,7 @@ pub fn ArtSeriesPage(series: ArtSeries) -> impl IntoView {
     view! {
         <body itemscope itemtype="https://schema.org/ImageGallery">
             <canvas id="shader-canvas" aria-hidden="true"></canvas>
+            <BackgroundGallery />
             <noscript>
                 <style>{"body { background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%); }"}</style>
             </noscript>
@@ -125,5 +126,11 @@ mod tests {
     fn series_has_nav() {
         let html = render_series();
         assert!(html.contains("site-nav"));
+    }
+
+    #[test]
+    fn series_has_background_gallery() {
+        let html = render_series();
+        assert!(html.contains("id=\"background-controls\""));
     }
 }

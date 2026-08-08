@@ -77,7 +77,7 @@ void main() {
   aurora *= smoothstep(0.0, 0.4, uv.y);
 
   // Map to subtle brightness
-  float brightness = aurora * 0.12 + 0.02;
+  float brightness = aurora * 0.16 + 0.008;
 
   gl_FragColor = vec4(vec3(brightness), 1.0);
 }
