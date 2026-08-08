@@ -81,7 +81,7 @@
 
   const STORAGE_KEY = 'shader-preference-v2';
   const LEGACY_STORAGE_KEY = 'shader-preference';
-  const ASSET_VERSION = '2026-08-08-09';
+  const ASSET_VERSION = '2026-08-08-10';
   const MAX_CACHED_PROGRAMS = 12;
   const MAX_RENDER_PIXELS = 4000000;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -89,11 +89,48 @@
     'attribute vec2 a_position;',
     'void main() { gl_Position = vec4(a_position, 0.0, 1.0); }'
   ].join('\n');
+  const compositorVertexSource = [
+    'attribute vec2 a_position;',
+    'varying vec2 v_uv;',
+    'void main() {',
+    '  v_uv = a_position * 0.5 + 0.5;',
+    '  gl_Position = vec4(a_position, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+  const compositorSource = [
+    'precision mediump float;',
+    'uniform sampler2D u_scene;',
+    'uniform vec4 u_motion;',
+    'uniform vec4 u_profile;',
+    'uniform float u_impulse;',
+    'varying vec2 v_uv;',
+    'void main() {',
+    '  vec2 center = v_uv - 0.5;',
+    '  float angle = (u_motion.x * u_motion.w - u_motion.y * u_motion.z) * u_profile.y;',
+    '  float c = cos(angle);',
+    '  float s = sin(angle);',
+    '  center = mat2(c, -s, s, c) * center;',
+    '  float wave = sin(length(center) * 18.0 - u_impulse * 2.0);',
+    '  center *= 0.955 + u_impulse * u_profile.z * wave;',
+    '  vec2 uv = 0.5 + center - u_motion.xy * u_profile.x;',
+    '  uv += u_motion.zw * u_profile.z * (0.12 + length(center));',
+    '  uv = clamp(uv, vec2(0.006), vec2(0.994));',
+    '  vec2 split = u_motion.zw * u_profile.w;',
+    '  float red = texture2D(u_scene, clamp(uv + split, 0.006, 0.994)).r;',
+    '  vec4 base = texture2D(u_scene, uv);',
+    '  float blue = texture2D(u_scene, clamp(uv - split, 0.006, 0.994)).b;',
+    '  gl_FragColor = vec4(red, base.g, blue, 1.0);',
+    '}'
+  ].join('\n');
 
   let canvas;
   let gl;
   let program;
   let geometry;
+  let sceneTexture;
+  let sceneFramebuffer;
+  let compositorProgram;
+  let compositorUniforms;
   let frame;
   let startedAt = performance.now();
   let currentIndex = 0;
@@ -101,10 +138,40 @@
   let paused = false;
   let pausedAt = 0;
   let uniforms = { time: null, resolution: null };
+  let activeProfile;
+  let lastFrameAt = performance.now();
+  let sensorEnabled = false;
+  let sensorListening = false;
+  let sensorNeutral = null;
+  const motion = {
+    target: [0, 0],
+    position: [0, 0],
+    velocity: [0, 0],
+    impulse: 0
+  };
   const sourceCache = new Map();
   const programCache = new Map();
 
   const wrap = (index) => (index % SHADERS.length + SHADERS.length) % SHADERS.length;
+  const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+
+  function generatedProfile(id) {
+    let hash = 2166136261;
+    for (let i = 0; i < id.length; i += 1) {
+      hash ^= id.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    const sample = (shift) => ((hash >>> shift) & 255) / 255;
+    return {
+      mass: 0.72 + sample(0) * 1.65,
+      stiffness: 10.0 + sample(8) * 12.0,
+      damping: 4.4 + sample(16) * 3.8,
+      travel: 0.009 + sample(4) * 0.014,
+      rotation: 0.035 + sample(12) * 0.075,
+      warp: 0.003 + sample(20) * 0.008,
+      chroma: 0.0002 + sample(24) * 0.0009
+    };
+  }
 
   function readPreference(key) {
     try {
@@ -135,8 +202,8 @@
     return shader;
   }
 
-  function buildProgram(fragmentSource) {
-    const vertex = compile(gl.VERTEX_SHADER, vertexSource);
+  function buildProgram(fragmentSource, customVertexSource = vertexSource) {
+    const vertex = compile(gl.VERTEX_SHADER, customVertexSource);
     const fragment = compile(gl.FRAGMENT_SHADER, fragmentSource);
     if (!vertex || !fragment) {
       if (vertex) gl.deleteShader(vertex);
@@ -157,6 +224,57 @@
       return null;
     }
     return nextProgram;
+  }
+
+  function bindGeometry(targetProgram) {
+    gl.useProgram(targetProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
+    const position = gl.getAttribLocation(targetProgram, 'a_position');
+    if (position < 0) return false;
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    return true;
+  }
+
+  function destroyRenderTarget() {
+    if (sceneFramebuffer) gl.deleteFramebuffer(sceneFramebuffer);
+    if (sceneTexture) gl.deleteTexture(sceneTexture);
+    sceneFramebuffer = null;
+    sceneTexture = null;
+  }
+
+  function createRenderTarget(width, height) {
+    destroyRenderTarget();
+    sceneTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, sceneTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    sceneFramebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTexture, 0);
+    const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!complete) {
+      console.warn('Background motion compositor unavailable: incomplete framebuffer.');
+      destroyRenderTarget();
+    }
+    return complete;
+  }
+
+  function setupCompositor() {
+    compositorProgram = buildProgram(compositorSource, compositorVertexSource);
+    if (!compositorProgram) return false;
+    compositorUniforms = {
+      scene: gl.getUniformLocation(compositorProgram, 'u_scene'),
+      motion: gl.getUniformLocation(compositorProgram, 'u_motion'),
+      profile: gl.getUniformLocation(compositorProgram, 'u_profile'),
+      impulse: gl.getUniformLocation(compositorProgram, 'u_impulse')
+    };
+    return true;
   }
 
   function rememberProgram(id, nextProgram) {
@@ -220,17 +338,14 @@
       }
       program = nextProgram;
       rememberProgram(shader.id, nextProgram);
-      gl.useProgram(program);
-      gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
-      const position = gl.getAttribLocation(program, 'a_position');
-      gl.enableVertexAttribArray(position);
-      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      bindGeometry(program);
       uniforms = {
         time: gl.getUniformLocation(program, 'u_time'),
         resolution: gl.getUniformLocation(program, 'u_resolution')
       };
 
       currentIndex = targetIndex;
+      activeProfile = generatedProfile(shader.id);
       savePreference(shader.id);
       updateControls();
       if (paused) render(performance.now());
@@ -247,10 +362,11 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 2, pixelBudgetScale);
     const width = Math.max(1, Math.round(window.innerWidth * dpr));
     const height = Math.max(1, Math.round(window.innerHeight * dpr));
-    if (canvas.width !== width || canvas.height !== height) {
+    if (canvas.width !== width || canvas.height !== height || !sceneFramebuffer) {
       canvas.width = width;
       canvas.height = height;
       gl.viewport(0, 0, width, height);
+      createRenderTarget(width, height);
     }
   }
 
@@ -268,15 +384,182 @@
     geometry = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, geometry);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
-    return true;
+    return setupCompositor();
+  }
+
+  function updateMotion(now) {
+    const dt = clamp((now - lastFrameAt) / 1000, 1 / 120, 1 / 20);
+    lastFrameAt = now;
+    const profile = activeProfile || generatedProfile('flow');
+    const spring = profile.stiffness / profile.mass;
+    const drag = Math.exp(-profile.damping * dt / profile.mass);
+
+    for (let axis = 0; axis < 2; axis += 1) {
+      const acceleration = (motion.target[axis] - motion.position[axis]) * spring;
+      motion.velocity[axis] = (motion.velocity[axis] + acceleration * dt) * drag;
+      motion.position[axis] = clamp(motion.position[axis] + motion.velocity[axis] * dt, -1.25, 1.25);
+    }
+    motion.impulse *= Math.exp(-5.5 * dt);
+  }
+
+  function screenAngle() {
+    if (screen.orientation && Number.isFinite(screen.orientation.angle)) return screen.orientation.angle;
+    return Number.isFinite(window.orientation) ? window.orientation : 0;
+  }
+
+  function orientToScreen(x, y) {
+    const angle = ((screenAngle() % 360) + 360) % 360;
+    if (angle === 90) return [-y, x];
+    if (angle === 180) return [-x, -y];
+    if (angle === 270) return [y, -x];
+    return [x, y];
+  }
+
+  function handleOrientation(event) {
+    if (document.hidden || !sensorEnabled || !Number.isFinite(event.beta) || !Number.isFinite(event.gamma)) return;
+    if (!sensorNeutral) sensorNeutral = { beta: event.beta, gamma: event.gamma };
+    const deltaGamma = clamp((event.gamma - sensorNeutral.gamma) / 28, -1, 1);
+    const deltaBeta = clamp((event.beta - sensorNeutral.beta) / 28, -1, 1);
+    const oriented = orientToScreen(deltaGamma, -deltaBeta);
+    motion.target[0] = oriented[0];
+    motion.target[1] = oriented[1];
+  }
+
+  function handleDeviceMotion(event) {
+    if (document.hidden || !sensorEnabled) return;
+    const acceleration = event.acceleration;
+    if (!acceleration) return;
+    const x = Number.isFinite(acceleration.x) ? acceleration.x : 0;
+    const y = Number.isFinite(acceleration.y) ? acceleration.y : 0;
+    const z = Number.isFinite(acceleration.z) ? acceleration.z : 0;
+    const magnitude = Math.sqrt(x * x + y * y + z * z);
+    motion.impulse = Math.max(motion.impulse, clamp((magnitude - 2.2) / 8.5, 0, 1));
+  }
+
+  function startSensorListeners() {
+    if (!sensorEnabled || sensorListening || document.hidden || paused || reducedMotion.matches) return;
+    window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+    window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+    sensorListening = true;
+  }
+
+  function stopSensorListeners() {
+    if (!sensorListening) return;
+    window.removeEventListener('deviceorientation', handleOrientation);
+    window.removeEventListener('devicemotion', handleDeviceMotion);
+    sensorListening = false;
+  }
+
+  function setInputStatus(message) {
+    const status = document.getElementById('background-input-status');
+    if (status) status.textContent = message;
+  }
+
+  function setTiltButton(active, label, disabled = false) {
+    const button = document.getElementById('background-tilt');
+    if (!button) return;
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    button.textContent = label;
+    button.disabled = disabled;
+  }
+
+  async function requestMotionPermission() {
+    const requests = [];
+    if (typeof DeviceOrientationEvent !== 'undefined'
+      && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      requests.push(DeviceOrientationEvent.requestPermission());
+    }
+    if (typeof DeviceMotionEvent !== 'undefined'
+      && typeof DeviceMotionEvent.requestPermission === 'function') {
+      requests.push(DeviceMotionEvent.requestPermission());
+    }
+    if (requests.length === 0) return true;
+    const permissions = await Promise.all(requests);
+    return permissions.every((permission) => permission === 'granted');
+  }
+
+  async function toggleTilt() {
+    if (sensorEnabled) {
+      sensorEnabled = false;
+      sensorNeutral = null;
+      stopSensorListeners();
+      motion.target[0] = 0;
+      motion.target[1] = 0;
+      setTiltButton(false, 'Enable tilt');
+      setInputStatus('Pointer-responsive - sensors stay local');
+      return;
+    }
+
+    setTiltButton(false, 'Requesting...', true);
+    try {
+      if (!await requestMotionPermission()) throw new Error('permission denied');
+      sensorEnabled = true;
+      sensorNeutral = null;
+      startSensorListeners();
+      setTiltButton(true, 'Tilt active');
+      setInputStatus('Tilt-responsive - sensors stay local');
+    } catch (error) {
+      console.warn('Background tilt input unavailable:', error);
+      setTiltButton(false, 'Enable tilt');
+      setInputStatus('Tilt permission unavailable - pointer-responsive');
+    }
+  }
+
+  function setupMotionInput() {
+    const tilt = document.getElementById('background-tilt');
+    const hasOrientation = typeof DeviceOrientationEvent !== 'undefined' && navigator.maxTouchPoints > 0;
+    if (tilt && hasOrientation) {
+      tilt.hidden = false;
+      tilt.addEventListener('click', toggleTilt);
+      setInputStatus('Pointer-responsive - tilt available');
+    } else {
+      setInputStatus('Pointer-responsive');
+    }
+
+    window.addEventListener('pointermove', (event) => {
+      if (sensorEnabled || document.hidden) return;
+      motion.target[0] = clamp((event.clientX / Math.max(1, window.innerWidth) - 0.5) * 1.6, -0.8, 0.8);
+      motion.target[1] = clamp((0.5 - event.clientY / Math.max(1, window.innerHeight)) * 1.6, -0.8, 0.8);
+    }, { passive: true });
+    document.documentElement.addEventListener('pointerleave', () => {
+      if (sensorEnabled) return;
+      motion.target[0] = 0;
+      motion.target[1] = 0;
+    }, { passive: true });
+    window.addEventListener('pointerdown', (event) => {
+      if (sensorEnabled || (event.target instanceof Element && event.target.closest('button, input, a'))) return;
+      motion.impulse = Math.max(motion.impulse, 0.32);
+    }, { passive: true });
   }
 
   function render(now) {
     if (program) {
-      gl.useProgram(program);
+      updateMotion(now);
+      const compositing = Boolean(sceneFramebuffer && sceneTexture && compositorProgram && compositorUniforms);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, compositing ? sceneFramebuffer : null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      bindGeometry(program);
       if (uniforms.time !== null) gl.uniform1f(uniforms.time, (now - startedAt) / 1000);
       if (uniforms.resolution !== null) gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      if (compositing) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        bindGeometry(compositorProgram);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, sceneTexture);
+        gl.uniform1i(compositorUniforms.scene, 0);
+        gl.uniform4f(
+          compositorUniforms.motion,
+          motion.position[0], motion.position[1], motion.velocity[0], motion.velocity[1]
+        );
+        gl.uniform4f(
+          compositorUniforms.profile,
+          activeProfile.travel, activeProfile.rotation, activeProfile.warp, activeProfile.chroma
+        );
+        gl.uniform1f(compositorUniforms.impulse, motion.impulse);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
     }
     if (!paused) frame = requestAnimationFrame(render);
   }
@@ -383,6 +666,7 @@
       const offset = 1 + Math.floor(Math.random() * (SHADERS.length - 1));
       select(currentIndex + offset);
     });
+    setupMotionInput();
     document.getElementById('background-motion').addEventListener('click', (event) => {
       const button = event.currentTarget;
       paused = !paused;
@@ -391,8 +675,11 @@
       if (paused) {
         pausedAt = performance.now();
         cancelAnimationFrame(frame);
+        stopSensorListeners();
       } else {
         startedAt += performance.now() - pausedAt;
+        startSensorListeners();
+        lastFrameAt = performance.now();
         frame = requestAnimationFrame(render);
       }
     });
@@ -436,6 +723,10 @@
       event.preventDefault();
       cancelAnimationFrame(frame);
       program = null;
+      compositorProgram = null;
+      compositorUniforms = null;
+      sceneTexture = null;
+      sceneFramebuffer = null;
       programCache.clear();
     });
     canvas.addEventListener('webglcontextrestored', async () => {
@@ -446,12 +737,24 @@
       if (!paused && !reducedMotion.matches && !document.hidden) frame = requestAnimationFrame(render);
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) cancelAnimationFrame(frame);
-      else if (!paused && !reducedMotion.matches) frame = requestAnimationFrame(render);
+      if (document.hidden) {
+        cancelAnimationFrame(frame);
+        stopSensorListeners();
+      } else {
+        startSensorListeners();
+        lastFrameAt = performance.now();
+        if (!paused && !reducedMotion.matches) frame = requestAnimationFrame(render);
+      }
     });
     reducedMotion.addEventListener('change', (event) => {
-      if (event.matches) cancelAnimationFrame(frame);
-      else if (!paused && !document.hidden) frame = requestAnimationFrame(render);
+      if (event.matches) {
+        cancelAnimationFrame(frame);
+        stopSensorListeners();
+      } else if (!paused && !document.hidden) {
+        startSensorListeners();
+        lastFrameAt = performance.now();
+        frame = requestAnimationFrame(render);
+      }
     });
   }
 

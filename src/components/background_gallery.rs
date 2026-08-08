@@ -32,8 +32,10 @@ pub fn BackgroundGallery() -> impl IntoView {
                 <p id="background-empty" hidden>"No backgrounds match."</p>
                 <div class="background-tools">
                     <button id="background-motion" type="button" aria-pressed="false">"Pause motion"</button>
+                    <button id="background-tilt" type="button" aria-pressed="false" hidden>"Enable tilt"</button>
                     <button id="background-shuffle" type="button" aria-label="Random background">"Shuffle"</button>
                 </div>
+                <p id="background-input-status" aria-live="polite">"Pointer-responsive"</p>
                 <div class="background-stepper">
                     <button id="background-prev" type="button" aria-label="Previous background">{"\u{2190}"}</button>
                     <p id="background-status" aria-live="polite">"Background loading"</p>
@@ -55,6 +57,8 @@ mod tests {
         assert!(html.contains("aria-label=\"Find a background\""));
         assert!(html.contains("aria-controls=\"background-list\""));
         assert!(html.contains("aria-label=\"Random background\""));
+        assert!(html.contains("id=\"background-tilt\""));
+        assert!(html.contains("id=\"background-input-status\""));
         assert!(html.contains("aria-live=\"polite\""));
     }
 }

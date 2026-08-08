@@ -116,10 +116,23 @@ mod tests {
         assert!(html.contains("aria-live=\"polite\""));
         assert!(html.contains("aria-label=\"Random background\""));
         assert!(html.contains("id=\"background-motion\""));
+        assert!(html.contains("id=\"background-tilt\""));
+        assert!(html.contains("id=\"background-input-status\""));
         assert!(html.contains("aria-pressed=\"false\""));
         assert!(html.contains("id=\"background-filter\""));
         assert!(html.contains("aria-label=\"Find a background\""));
         assert!(html.contains("id=\"background-empty\""));
+    }
+
+    #[test]
+    fn background_manager_has_a_shared_motion_compositor() {
+        let manager = fs::read_to_string("public/js/shader-bg.js")
+            .expect("background manager source should be readable");
+        assert!(manager.contains("const compositorSource"));
+        assert!(manager.contains("function generatedProfile"));
+        assert!(manager.contains("DeviceOrientationEvent"));
+        assert!(manager.contains("requestPermission"));
+        assert!(manager.contains("gl.bindFramebuffer"));
     }
 
     #[test]
