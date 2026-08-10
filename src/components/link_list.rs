@@ -23,7 +23,7 @@ pub struct LinkEntry {
     pub description: Option<&'static str>,
 }
 
-/// The five canonical profile links, in display order.
+/// The seven canonical profile links, in display order.
 ///
 /// Intentionally short. Anything more should live on its own page or sub-domain.
 const LINKS: &[LinkEntry] = &[
@@ -43,14 +43,19 @@ const LINKS: &[LinkEntry] = &[
         description: Some("Code is art"),
     },
     LinkEntry {
+        label: "X",
+        href: "https://x.com/everythingSung",
+        description: Some("Follow on X"),
+    },
+    LinkEntry {
         label: "Music",
         href: "https://music.apple.com/artist/1704503690",
         description: Some("Listen on Apple Music"),
     },
     LinkEntry {
-        label: "X",
-        href: "https://x.com/everythingSung",
-        description: Some("Follow on X"),
+        label: "Midjourney",
+        href: "https://www.midjourney.com/@everythingsings",
+        description: Some("Explore images on Midjourney"),
     },
     LinkEntry {
         label: "Book Reviews",
@@ -117,8 +122,8 @@ mod tests {
     }
 
     #[test]
-    fn list_has_six_links() {
-        assert_eq!(LINKS.len(), 6);
+    fn list_has_seven_links() {
+        assert_eq!(LINKS.len(), 7);
     }
 
     #[test]
@@ -170,13 +175,20 @@ mod tests {
     }
 
     #[test]
+    fn midjourney_link_present() {
+        let html = render_list();
+        assert!(html.contains("midjourney.com/@everythingsings"));
+    }
+
+    #[test]
     fn links_in_expected_order() {
         let expected = [
             "Networked Art",
             "Shop",
             "GitHub",
-            "Music",
             "X",
+            "Music",
+            "Midjourney",
             "Book Reviews",
         ];
         for (i, link) in LINKS.iter().enumerate() {
