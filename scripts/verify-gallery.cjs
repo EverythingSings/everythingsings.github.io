@@ -65,9 +65,9 @@ async function fits(page, selectors) {
 
     await page.locator('#art-choose').click();
     await visible(page, '#background-panel');
-    assert((await page.locator('.background-option').count()) >= 79);
-    assert.equal(await page.locator('.background-option').first().getAttribute('data-name'), 'lacuna');
-    assert.equal(await page.locator('.background-option[data-new]').count(), 8);
+    assert((await page.locator('.background-option').count()) >= 84);
+    assert.equal(await page.locator('.background-option').first().getAttribute('data-name'), 'morphogenesis');
+    assert.equal(await page.locator('.background-option[data-new]').count(), 13);
     await page.locator('#background-filter').fill('rosette');
     await page.getByRole('option', { name: 'Rosette', exact: true }).click();
     await textIs(page, '#art-title', 'Rosette');
@@ -75,7 +75,7 @@ async function fits(page, selectors) {
     assert.equal(await page.locator('#art-choose').evaluate(el => el === document.activeElement), true);
     assert.equal(new URL(page.url()).searchParams.get('study'), 'rosette');
     assert.equal(await page.title(), 'Rosette | EverythingSings');
-    passed('New studies appear first; search all 79 studies, return focus, study URL and title');
+    passed('New studies appear first; search all 84 studies, return focus, study URL and title');
 
     await page.locator('#art-choose').click();
     await page.keyboard.press('Escape');
@@ -149,7 +149,12 @@ async function fits(page, selectors) {
       await touch.screenshot({ path: path.join(output, `touch-${size.width}x${size.height}-art.png`) });
       await touch.locator('#art-choose').tap();
       await visible(touch, '#background-panel');
-      await fits(touch, ['#background-panel', '#background-filter', '#background-motion']);
+      await fits(touch, ['#background-panel', '#background-filter', '#background-list']);
+      const active = touch.locator('.background-option.is-active');
+      await active.scrollIntoViewIfNeeded();
+      await active.locator('img').evaluate(img => img.decode());
+      assert(await active.locator('img').evaluate(img => img.naturalWidth === 288 && img.naturalHeight === 180));
+      await fits(touch, ['.background-option.is-active']);
       await touch.screenshot({ path: path.join(output, `touch-${size.width}x${size.height}-gallery.png`) });
       await touch.locator('#background-filter').fill('kintsugi');
       await touch.getByRole('option', { name: 'Kintsugi', exact: true }).tap();

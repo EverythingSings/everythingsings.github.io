@@ -271,7 +271,10 @@
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #777, #151515 70%);
+  overflow: hidden;
 }
+
+.background-preview { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 .swatch-aurora, .swatch-flow, .swatch-smoke, .swatch-fbm { border-radius: 45% 55% 35% 65%; }
 .swatch-waves, .swatch-ripple, .swatch-strata, .swatch-rain { border-radius: 35% 65% 35% 65%; }
@@ -941,6 +944,13 @@ body.art-viewing {
   display: none;
 }
 
+.art-top-tools { display: flex; align-items: center; gap: 0.5rem; }
+#art-viewer #art-reset { padding: 0.5rem 0.8rem; background: rgba(8, 10, 13, 0.78); }
+#art-viewer #art-reset[hidden], #art-interaction[hidden] { display: none; }
+.art-interaction { display: block; margin-top: 0.35rem; color: #bcbfc2; font-size: 0.6875rem; }
+.art-viewing.is-simulation #shader-canvas { pointer-events: auto; touch-action: none; cursor: crosshair; }
+@media (max-width: 380px) { .is-simulation .art-signature { display: none; } }
+
 .art-viewer-top,
 .art-viewer-bottom {
   position: absolute;
@@ -1119,8 +1129,27 @@ body.art-viewing {
 
 .art-viewing .background-option {
   min-height: 44px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.4rem;
+  font-size: 0.75rem;
   -webkit-tap-highlight-color: transparent;
 }
+
+.art-viewing .background-option > span:last-child { padding: 0 0.15rem 0.15rem; }
+.art-viewing .background-option .background-swatch {
+  width: 100%; height: auto; aspect-ratio: 8 / 5; border: 0; border-radius: 4px; box-shadow: none;
+}
+.art-viewing #background-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 0.5rem;
+}
+.art-viewing .background-tools,
+.art-viewing .background-stepper,
+.art-viewing #background-input-status { display: none; }
 
 .art-viewing #background-controls {
   inset: auto 0 0 auto;
@@ -1132,6 +1161,7 @@ body.art-viewing {
   top: auto;
   bottom: max(7rem, calc(env(safe-area-inset-bottom) + 6rem));
   right: 1.5rem;
+  width: min(39rem, calc(100vw - 3rem));
   max-height: calc(100dvh - 12rem);
   transform: none;
 }
@@ -1161,9 +1191,12 @@ body.art-viewing {
 
   .art-viewing #background-panel {
     right: 0.75rem;
+    width: calc(100vw - 1.5rem);
     bottom: max(11rem, calc(env(safe-area-inset-bottom) + 10rem));
     max-height: calc(100dvh - 15.5rem);
   }
+
+  .art-viewing #background-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   #art-share-fallback {
     width: 100%;

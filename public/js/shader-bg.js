@@ -84,12 +84,17 @@
     { id: 'prismaticfold', name: 'Prismatic Fold', featured: true, fullRange: true, renderPixels: 2000000 },
     { id: 'noctiluca', name: 'Noctiluca', featured: true, fullRange: true, renderPixels: 1800000 },
     { id: 'aperturechoir', name: 'Aperture Choir', featured: true, fullRange: true, renderPixels: 2000000 },
-    { id: 'palimpsest', name: 'Palimpsest', featured: true, fullRange: true, renderPixels: 2200000 }
+    { id: 'palimpsest', name: 'Palimpsest', featured: true, fullRange: true, renderPixels: 2200000 },
+    { id: 'morphogenesis', name: 'Morphogenesis', featured: 2, fullRange: true, renderPixels: 1600000, simulation: 'reaction', interaction: 'Drag to plant. Watch it grow.' },
+    { id: 'inkweather', name: 'Ink Weather', featured: 2, fullRange: true, renderPixels: 1600000, simulation: 'fluid', interaction: 'Drag to stir the ink.' },
+    { id: 'resonantbasin', name: 'Resonant Basin', featured: 2, fullRange: true, renderPixels: 1600000, simulation: 'wave', interaction: 'Drag or tap to disturb the surface.' },
+    { id: 'gyroidreliquary', name: 'Gyroid Reliquary', featured: 2, fullRange: true, renderPixels: 900000 },
+    { id: 'asterglass', name: 'Aster Glass', featured: 2, fullRange: true, renderPixels: 1300000 }
   ];
 
   const STORAGE_KEY = 'shader-preference-v2';
   const LEGACY_STORAGE_KEY = 'shader-preference';
-  const ASSET_VERSION = '2026-09-05-01';
+  const ASSET_VERSION = '2026-09-05-02';
   const MAX_CACHED_PROGRAMS = 12;
   const MAX_RENDER_PIXELS = 4000000;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -153,6 +158,10 @@
   let sensorNeutral = null;
   let viewerOpen = false;
   let viewerScrollY = 0;
+  let simulation = null;
+  let simulationSeed = readSeed();
+  let lastSimulationAt = performance.now();
+  const brush = { down: false, pending: false, previous: [0.5, 0.5], position: [0.5, 0.5] };
   const pageTitle = document.title;
   const motion = {
     target: [0, 0],
@@ -336,6 +345,8 @@
     const url = new URL(window.location.href);
     url.searchParams.set('study', SHADERS[currentIndex].id);
     url.searchParams.set('view', 'art');
+    if (simulation) url.searchParams.set('seed', String(simulationSeed));
+    else url.searchParams.delete('seed');
     return url;
   }
 
@@ -344,6 +355,7 @@
     if (!viewerOpen) {
       url.searchParams.delete('study');
       url.searchParams.delete('view');
+      url.searchParams.delete('seed');
     }
     if (url.href === window.location.href) return;
     try {
@@ -359,6 +371,10 @@
     if (!title) return;
     const shader = SHADERS[currentIndex];
     title.textContent = shader.name;
+    const instruction = document.getElementById('art-interaction');
+    instruction.textContent = shader.interaction || '';
+    instruction.hidden = !shader.interaction;
+    document.getElementById('art-reset').hidden = !simulation;
     document.getElementById('art-position').textContent =
       `Study ${String(currentIndex + 1).padStart(2, '0')} / ${SHADERS.length}`;
     document.getElementById('art-share-fallback').hidden = true;
@@ -381,6 +397,8 @@
     setPanel(false);
     if (open) viewerScrollY = window.scrollY;
     viewerOpen = open;
+    brush.down = false;
+    brush.pending = false;
     viewer.hidden = !open;
     document.body.classList.toggle('art-viewing', open);
     document.querySelectorAll('main, body > footer').forEach((element) => {
@@ -408,6 +426,8 @@
         ? (paused ? 'Play' : 'Pause') : (paused ? 'Resume motion' : 'Pause motion');
     });
     if (paused) {
+      brush.down = false;
+      brush.pending = false;
       pausedAt = performance.now();
       cancelAnimationFrame(frame);
       stopSensorListeners();
@@ -415,6 +435,7 @@
       startedAt += performance.now() - pausedAt;
       startSensorListeners();
       lastFrameAt = performance.now();
+      lastSimulationAt = performance.now();
       if (!document.hidden && !reducedMotion.matches) frame = requestAnimationFrame(render);
     }
   }
@@ -431,6 +452,12 @@
     document.getElementById('art-prev').addEventListener('click', () => select(currentIndex - 1));
     document.getElementById('art-next').addEventListener('click', () => select(currentIndex + 1));
     document.getElementById('art-motion').addEventListener('click', () => setPaused(!paused));
+    document.getElementById('art-reset').addEventListener('click', async () => {
+      if (!simulation) return;
+      simulationSeed = (simulationSeed * 16807) % 99991 || 1;
+      await select(currentIndex);
+      document.getElementById('art-notice').textContent = 'A new beginning';
+    });
     document.getElementById('art-share').addEventListener('click', async () => {
       const url = studyUrl().href;
       try {
@@ -447,6 +474,7 @@
       }
     });
     window.addEventListener('popstate', () => {
+      simulationSeed = readSeed();
       const index = initialIndex();
       setViewer(new URL(window.location.href).searchParams.get('view') === 'art', false);
       select(index);
@@ -459,6 +487,8 @@
     const targetIndex = wrap(index);
     const serial = ++requestSerial;
     const shader = SHADERS[targetIndex];
+    let nextSimulation = null;
+    let newProgram = null;
 
     try {
       const source = await sourceFor(shader);
@@ -466,13 +496,30 @@
       let nextProgram = programCache.get(shader.id);
       if (!nextProgram) {
         nextProgram = buildProgram(source);
+        newProgram = nextProgram;
       }
       if (!nextProgram) {
         await select(targetIndex + 1, attempts + 1);
         return;
       }
+      if (shader.simulation) {
+        const { createSimulation } = await import(`/js/art-simulation.js?v=${ASSET_VERSION}`);
+        if (serial !== requestSerial) { if (newProgram) gl.deleteProgram(newProgram); return; }
+        nextSimulation = createSimulation(gl, {
+          kind: shader.simulation, seed: simulationSeed,
+          aspect: window.innerWidth / Math.max(window.innerHeight, 1),
+          buildProgram, bindGeometry
+        });
+      }
+      if (simulation) simulation.destroy();
+      simulation = nextSimulation;
+      brush.down = false;
+      brush.pending = false;
+      lastSimulationAt = performance.now();
+      document.body.classList.toggle('is-simulation', Boolean(simulation));
       program = nextProgram;
       rememberProgram(shader.id, nextProgram);
+      newProgram = null;
       bindGeometry(program);
       uniforms = {
         time: gl.getUniformLocation(program, 'u_time'),
@@ -480,6 +527,8 @@
         pointer: gl.getUniformLocation(program, 'u_pointer'),
         impulse: gl.getUniformLocation(program, 'u_impulse')
       };
+      uniforms.state = gl.getUniformLocation(program, 'u_state');
+      uniforms.stateSize = gl.getUniformLocation(program, 'u_stateSize');
 
       currentIndex = targetIndex;
       activeProfile = generatedProfile(shader.id);
@@ -495,6 +544,8 @@
       resize();
       if (paused || reducedMotion.matches) render(paused ? pausedAt : performance.now());
     } catch (error) {
+      if (newProgram) gl.deleteProgram(newProgram);
+      if (nextSimulation && nextSimulation !== simulation) nextSimulation.destroy();
       console.warn(`Background "${shader.name}" unavailable:`, error);
       if (serial === requestSerial) await select(targetIndex + 1, attempts + 1);
     }
@@ -664,6 +715,7 @@
     }
 
     window.addEventListener('pointermove', (event) => {
+      if (brush.down) brush.position = [event.clientX / window.innerWidth, 1 - event.clientY / window.innerHeight];
       if (sensorEnabled || document.hidden) return;
       motion.target[0] = clamp((event.clientX / Math.max(1, window.innerWidth) - 0.5) * 1.6, -0.8, 0.8);
       motion.target[1] = clamp((0.5 - event.clientY / Math.max(1, window.innerHeight)) * 1.6, -0.8, 0.8);
@@ -674,15 +726,32 @@
       motion.target[1] = 0;
     }, { passive: true });
     window.addEventListener('pointerdown', (event) => {
+      if (viewerOpen && simulation && !paused && event.target === canvas) {
+        brush.position = [event.clientX / window.innerWidth, 1 - event.clientY / window.innerHeight];
+        brush.previous = [...brush.position];
+        brush.down = true;
+        brush.pending = true;
+        canvas.setPointerCapture(event.pointerId);
+      }
       if (sensorEnabled || (event.target instanceof Element && event.target.closest('button, input, a'))) return;
       motion.impulse = Math.max(motion.impulse, 0.32);
     }, { passive: true });
+    const releaseBrush = () => { brush.down = false; };
+    window.addEventListener('pointerup', releaseBrush, { passive: true });
+    window.addEventListener('pointercancel', releaseBrush, { passive: true });
+    window.addEventListener('blur', releaseBrush);
   }
 
   function render(now) {
     if (program) {
+      const elapsed = Math.max(0, (now - lastSimulationAt) / 1000);
+      lastSimulationAt = now;
+      if (simulation && !paused && !document.hidden && !reducedMotion.matches) {
+        const ticks = simulation.advance(elapsed, { ...brush, down: brush.down || brush.pending });
+        if (ticks) { brush.previous = [...brush.position]; brush.pending = false; }
+      }
       updateMotion(now);
-      const compositing = Boolean(sceneFramebuffer && sceneTexture && compositorProgram && compositorUniforms);
+      const compositing = !simulation && Boolean(sceneFramebuffer && sceneTexture && compositorProgram && compositorUniforms);
       gl.bindFramebuffer(gl.FRAMEBUFFER, compositing ? sceneFramebuffer : null);
       gl.viewport(0, 0, canvas.width, canvas.height);
       bindGeometry(program);
@@ -690,6 +759,12 @@
       if (uniforms.resolution !== null) gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
       if (uniforms.pointer !== null) gl.uniform2f(uniforms.pointer, motion.position[0], motion.position[1]);
       if (uniforms.impulse !== null) gl.uniform1f(uniforms.impulse, motion.impulse);
+      if (simulation) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, simulation.texture);
+        gl.uniform1i(uniforms.state, 0);
+        gl.uniform2f(uniforms.stateSize, ...simulation.size);
+      }
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       if (compositing) {
@@ -746,7 +821,7 @@
     if (count) count.textContent = `${SHADERS.length} studies`;
 
     const galleryOrder = SHADERS.map((shader, index) => ({ shader, index }))
-      .sort((a, b) => Number(Boolean(b.shader.featured)) - Number(Boolean(a.shader.featured)));
+      .sort((a, b) => Number(b.shader.featured || 0) - Number(a.shader.featured || 0));
     list.replaceChildren(...galleryOrder.map(({ shader, index }) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -755,7 +830,7 @@
       button.dataset.index = index.toString();
       button.dataset.name = shader.name.toLocaleLowerCase();
       if (shader.featured) button.dataset.new = 'true';
-      button.innerHTML = `<span class="background-swatch swatch-${shader.id}" aria-hidden="true"></span><span>${shader.name}</span>`;
+      button.innerHTML = `<span class="background-swatch swatch-${shader.id}" aria-hidden="true"><img class="background-preview" src="/study-previews/${shader.id}.webp?v=${ASSET_VERSION}" alt="" width="288" height="180" loading="lazy" decoding="async"></span><span>${shader.name}</span>`;
       const chooseStudy = async () => {
         await select(index);
         if (viewerOpen) setPanel(false, true);
@@ -871,7 +946,8 @@
     if (savedIndex >= 0) return savedIndex;
     const legacy = Number.parseInt(readPreference(LEGACY_STORAGE_KEY), 10);
     if (Number.isInteger(legacy) && legacy >= 0 && legacy < 11) return legacy;
-    const featured = SHADERS.map((shader, index) => shader.featured ? index : -1).filter((index) => index >= 0);
+    const latest = Math.max(...SHADERS.map(shader => Number(shader.featured || 0)));
+    const featured = SHADERS.map((shader, index) => Number(shader.featured) === latest ? index : -1).filter((index) => index >= 0);
     return featured.length ? featured[Math.floor(Math.random() * featured.length)] : Math.floor(Math.random() * SHADERS.length);
   }
 
@@ -889,6 +965,12 @@
       return;
     }
     buildViewer();
+    window.__ART_GALLERY__ = Object.freeze({
+      snapshot: (readPixels = false) => ({
+        study: SHADERS[currentIndex].id, paused, viewerOpen,
+        simulation: simulation ? simulation.snapshot(readPixels) : null
+      })
+    });
     frame = requestAnimationFrame(render);
     window.addEventListener('resize', resize, { passive: true });
     canvas.addEventListener('webglcontextlost', (event) => {
@@ -896,6 +978,10 @@
       setViewer(false);
       document.documentElement.classList.remove('webgl-backgrounds');
       cancelAnimationFrame(frame);
+      requestSerial += 1;
+      brush.down = false;
+      if (simulation) simulation.destroy();
+      simulation = null;
       program = null;
       compositorProgram = null;
       compositorUniforms = null;
@@ -918,6 +1004,7 @@
       } else {
         startSensorListeners();
         lastFrameAt = performance.now();
+        lastSimulationAt = performance.now();
         if (!paused && !reducedMotion.matches) frame = requestAnimationFrame(render);
       }
     });
@@ -932,10 +1019,16 @@
         if (!paused && !document.hidden) {
           startSensorListeners();
           lastFrameAt = performance.now();
+          lastSimulationAt = performance.now();
           frame = requestAnimationFrame(render);
         }
       }
     });
+  }
+
+  function readSeed() {
+    const value = Number(new URL(window.location.href).searchParams.get('seed'));
+    return Number.isInteger(value) && value > 0 && value < 100000 ? value : 1;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

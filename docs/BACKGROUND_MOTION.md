@@ -68,9 +68,11 @@ viewing returns to the links.
 
 ## September 2026 additions
 
-The collection now has 79 studies. The eight additions appear first in the
-gallery, with distinct swatches. First-time visits sample this group; explicit
-study URLs, saved preferences, and the original legacy indices take precedence.
+The first September expansion brought the collection to 79 studies. A subsequent
+five-study expansion brings it to 84; see [Living studies](LIVING_STUDIES.md).
+The newest group appears first in the gallery and is sampled on first-time
+visits. Explicit study URLs, saved preferences, and original legacy indices take
+precedence. All studies now have previews captured from their actual renders.
 
 | Study | Construction | Pointer response |
 | --- | --- | --- |

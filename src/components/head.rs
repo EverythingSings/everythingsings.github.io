@@ -78,8 +78,8 @@ pub fn generate_head_html_for(meta: &PageMeta) -> String {
 <meta name="twitter:image" content="{og_image}" />
 <link rel="alternate" type="application/rss+xml" title="{name} RSS Feed" href="/feed.xml" />
 <script type="application/ld+json">{json_ld}</script>
-<link rel="stylesheet" href="/main.css" />
-<script src="/js/shader-bg.js" defer></script>
+<link rel="stylesheet" href="/main.css?v=2026-09-05-02" />
+<script src="/js/shader-bg.js?v=2026-09-05-02" defer></script>
 </head>"#,
         title = meta.title,
         description = meta.description,

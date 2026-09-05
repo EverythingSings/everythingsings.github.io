@@ -20,12 +20,16 @@ pub fn ArtViewer() -> impl IntoView {
         <section id="art-viewer" aria-label="Art viewer" tabindex="-1" hidden>
             <div class="art-viewer-top">
                 <button id="art-exit" type="button"><span aria-hidden="true">"← "</span>"Show links"</button>
-                <span class="art-signature">"EverythingSings"</span>
+                <div class="art-top-tools">
+                    <button id="art-reset" type="button" hidden>"Restart"</button>
+                    <span class="art-signature">"EverythingSings"</span>
+                </div>
             </div>
             <div class="art-viewer-bottom">
                 <button id="art-choose" type="button" aria-expanded="false" aria-controls="background-panel" aria-label="Choose a study">
                     <span id="art-position" class="art-eyebrow"></span>
                     <span class="art-title-line"><span id="art-title"></span><span class="art-browse">"Browse ↗"</span></span>
+                    <span id="art-interaction" class="art-interaction" hidden></span>
                 </button>
                 <div class="art-actions" aria-label="Study controls">
                     <div class="art-transport">

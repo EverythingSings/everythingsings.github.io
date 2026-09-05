@@ -3,8 +3,13 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const path = require('node:path');
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
-const studies = ['lacuna', 'silkcurrent', 'tidalmemory', 'orbitalloom', 'prismaticfold', 'noctiluca', 'aperturechoir', 'palimpsest'];
-const names = ['Lacuna', 'Silk Current', 'Tidal Memory', 'Orbital Loom', 'Prismatic Fold', 'Noctiluca', 'Aperture Choir', 'Palimpsest'];
+const collection = {
+  morphogenesis: 'Morphogenesis', inkweather: 'Ink Weather', resonantbasin: 'Resonant Basin',
+  gyroidreliquary: 'Gyroid Reliquary', asterglass: 'Aster Glass',
+  lacuna: 'Lacuna', silkcurrent: 'Silk Current', tidalmemory: 'Tidal Memory', orbitalloom: 'Orbital Loom',
+  prismaticfold: 'Prismatic Fold', noctiluca: 'Noctiluca', aperturechoir: 'Aperture Choir', palimpsest: 'Palimpsest'
+};
+const studies = process.env.STUDIES ? process.env.STUDIES.split(',') : Object.keys(collection);
 const base = process.argv[2] || 'http://127.0.0.1:8765/';
 const out = path.resolve(process.argv[3] || 'target/collection-qa');
 fs.mkdirSync(out, { recursive: true });
@@ -20,9 +25,10 @@ fs.mkdirSync(out, { recursive: true });
     await page.goto(`${base}?study=${id}&view=art`, { waitUntil: 'load' });
     await page.locator('#art-viewer').waitFor({ state: 'visible' });
     await page.locator('main').waitFor({ state: 'hidden' });
-    await page.waitForTimeout(600);
+    await page.waitForFunction(name => document.querySelector('#art-title')?.textContent === name, collection[id]);
+    await page.waitForTimeout(id === 'inkweather' ? 6500 : 1500);
     if (new URL(page.url()).searchParams.get('study') !== id) throw new Error(`${id} fell back to another shader`);
-    assert.equal(await page.locator('#art-title').textContent(), names[studies.indexOf(id)], `${id} must actually load instead of silently falling back`);
+    assert.equal(await page.locator('#art-title').textContent(), collection[id], `${id} must actually load instead of silently falling back`);
     const performance = await page.evaluate(async () => {
       const times = [];
       let last;
@@ -55,7 +61,9 @@ fs.mkdirSync(out, { recursive: true });
     await touch.getByRole('button', { name: 'Hide links', exact: true }).tap();
     await touch.locator('main').waitFor({ state: 'hidden' });
     await touch.waitForTimeout(550);
-    assert.equal(await touch.locator('#art-title').textContent(), names[studies.indexOf(id)]);
+    await touch.waitForFunction(name => document.querySelector('#art-title')?.textContent === name, collection[id]);
+    await touch.waitForTimeout(id === 'inkweather' ? 6500 : 1000);
+    assert.equal(await touch.locator('#art-title').textContent(), collection[id]);
     await touch.locator('#art-motion').tap();
     await touch.screenshot({ path: path.join(out, `${id}-mobile.png`) });
     for (const selector of ['#art-exit', '#art-choose', '#art-prev', '#art-motion', '#art-next', '#art-share']) {

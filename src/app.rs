@@ -162,7 +162,7 @@ mod tests {
             .filter(|id| id != "common")
             .collect();
 
-        assert!(ids.len() >= 79, "background gallery unexpectedly shrank");
+        assert!(ids.len() >= 84, "background gallery unexpectedly shrank");
         assert_eq!(ids.len(), names.len(), "every background needs a name");
         assert_eq!(ids.len(), unique.len(), "background ids must be unique");
         assert_eq!(
@@ -176,6 +176,12 @@ mod tests {
             "every shader source should be represented in the gallery"
         );
         for id in ids {
+            assert!(
+                Path::new("public/study-previews")
+                    .join(format!("{id}.webp"))
+                    .is_file(),
+                "registered background {id} needs a rendered preview"
+            );
             let path = Path::new("public/shaders").join(format!("{id}.glsl"));
             assert!(
                 shader_files.contains(id) && path.is_file(),
