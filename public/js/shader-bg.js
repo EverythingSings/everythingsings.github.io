@@ -483,8 +483,13 @@
 
       currentIndex = targetIndex;
       activeProfile = generatedProfile(shader.id);
+      // Changing artwork changes its exposure convention immediately. Only
+      // hiding/showing links should fade between background and viewing levels.
+      canvas.style.transition = 'none';
       canvas.style.setProperty('--study-background-exposure', shader.fullRange ? '0.16' : '1');
       canvas.style.setProperty('--study-view-exposure', shader.fullRange ? '1' : '4');
+      getComputedStyle(canvas).filter;
+      canvas.style.removeProperty('transition');
       savePreference(shader.id);
       updateControls();
       resize();

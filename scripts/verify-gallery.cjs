@@ -100,6 +100,11 @@ async function fits(page, selectors) {
     assert.equal(page.url(), historyUrl);
     passed('Browser Back and Forward restore immersive state');
 
+    await page.goto(base + '?study=lacuna', { waitUntil: 'load' });
+    await visible(page, '#art-enter');
+    assert.equal(await page.locator('#shader-canvas').evaluate(el => getComputedStyle(el).filter), 'brightness(0.16)');
+    passed('Full-range artwork starts at the background exposure without a bright flash');
+
     await page.goto(base + '?study=kintsugi&view=art', { waitUntil: 'load' });
     await visible(page, '#art-viewer');
     await textIs(page, '#art-title', 'Kintsugi');
