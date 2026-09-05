@@ -7,7 +7,7 @@
 //! in main.rs because Leptos's view! macro doesn't support the `property`
 //! attribute needed for Open Graph meta tags.
 
-use crate::components::{BackgroundGallery, LinkList, Nav, ProfileCard};
+use crate::components::{ArtEntry, ArtViewer, BackgroundGallery, LinkList, Nav, ProfileCard};
 use leptos::prelude::*;
 
 /// The root application component.
@@ -33,12 +33,14 @@ pub fn Body() -> impl IntoView {
         >
             <canvas id="shader-canvas" aria-hidden="true"></canvas>
             <BackgroundGallery />
+            <ArtViewer />
             <noscript>
                 <style>{"body { background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%); }"}</style>
             </noscript>
             <main class="container">
                 <Nav />
                 <ProfileCard />
+                <ArtEntry />
                 <LinkList />
             </main>
             <footer></footer>
@@ -160,7 +162,7 @@ mod tests {
             .filter(|id| id != "common")
             .collect();
 
-        assert!(ids.len() >= 71, "background gallery unexpectedly shrank");
+        assert!(ids.len() >= 79, "background gallery unexpectedly shrank");
         assert_eq!(ids.len(), names.len(), "every background needs a name");
         assert_eq!(ids.len(), unique.len(), "background ids must be unique");
         assert_eq!(

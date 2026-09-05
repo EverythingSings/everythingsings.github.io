@@ -76,12 +76,20 @@
     { id: 'telemetry', name: 'Telemetry' },
     { id: 'perforation', name: 'Perforation' },
     { id: 'bellows', name: 'Bellows' },
-    { id: 'transit', name: 'Transit' }
+    { id: 'transit', name: 'Transit' },
+    { id: 'lacuna', name: 'Lacuna', featured: true, fullRange: true, renderPixels: 1100000 },
+    { id: 'silkcurrent', name: 'Silk Current', featured: true, fullRange: true, renderPixels: 2200000 },
+    { id: 'tidalmemory', name: 'Tidal Memory', featured: true, fullRange: true, renderPixels: 1400000 },
+    { id: 'orbitalloom', name: 'Orbital Loom', featured: true, fullRange: true, renderPixels: 1100000 },
+    { id: 'prismaticfold', name: 'Prismatic Fold', featured: true, fullRange: true, renderPixels: 2000000 },
+    { id: 'noctiluca', name: 'Noctiluca', featured: true, fullRange: true, renderPixels: 1800000 },
+    { id: 'aperturechoir', name: 'Aperture Choir', featured: true, fullRange: true, renderPixels: 2000000 },
+    { id: 'palimpsest', name: 'Palimpsest', featured: true, fullRange: true, renderPixels: 2200000 }
   ];
 
   const STORAGE_KEY = 'shader-preference-v2';
   const LEGACY_STORAGE_KEY = 'shader-preference';
-  const ASSET_VERSION = '2026-08-08-10';
+  const ASSET_VERSION = '2026-09-05-01';
   const MAX_CACHED_PROGRAMS = 12;
   const MAX_RENDER_PIXELS = 4000000;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -137,12 +145,15 @@
   let requestSerial = 0;
   let paused = false;
   let pausedAt = 0;
-  let uniforms = { time: null, resolution: null };
+  let uniforms = { time: null, resolution: null, pointer: null, impulse: null };
   let activeProfile;
   let lastFrameAt = performance.now();
   let sensorEnabled = false;
   let sensorListening = false;
   let sensorNeutral = null;
+  let viewerOpen = false;
+  let viewerScrollY = 0;
+  const pageTitle = document.title;
   const motion = {
     target: [0, 0],
     position: [0, 0],
@@ -303,10 +314,10 @@
     const status = document.getElementById('background-status');
     const options = document.querySelectorAll('.background-option');
     if (name) name.textContent = shader.name;
-    if (status) status.textContent = `Background: ${shader.name}, ${currentIndex + 1} of ${SHADERS.length}`;
+    if (status) status.textContent = `${viewerOpen ? 'Study' : 'Background'}: ${shader.name}, ${currentIndex + 1} of ${SHADERS.length}`;
     let visibleTabStop = false;
-    options.forEach((option, index) => {
-      const active = index === currentIndex;
+    options.forEach((option) => {
+      const active = Number(option.dataset.index) === currentIndex;
       option.classList.toggle('is-active', active);
       option.setAttribute('aria-selected', active ? 'true' : 'false');
       const activeAndVisible = active && !option.hidden;
@@ -317,6 +328,130 @@
       const firstVisible = Array.from(options).find((option) => !option.hidden);
       if (firstVisible) firstVisible.tabIndex = 0;
     }
+    updateViewer();
+    if (viewerOpen) writeViewerUrl();
+  }
+
+  function studyUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.set('study', SHADERS[currentIndex].id);
+    url.searchParams.set('view', 'art');
+    return url;
+  }
+
+  function writeViewerUrl(push = false) {
+    const url = viewerOpen ? studyUrl() : new URL(window.location.href);
+    if (!viewerOpen) {
+      url.searchParams.delete('study');
+      url.searchParams.delete('view');
+    }
+    if (url.href === window.location.href) return;
+    try {
+      if (push) history.pushState(null, '', url);
+      else history.replaceState(history.state, '', url);
+    } catch (error) {
+      // Viewing still works in embeds that disallow history changes.
+    }
+  }
+
+  function updateViewer() {
+    const title = document.getElementById('art-title');
+    if (!title) return;
+    const shader = SHADERS[currentIndex];
+    title.textContent = shader.name;
+    document.getElementById('art-position').textContent =
+      `Study ${String(currentIndex + 1).padStart(2, '0')} / ${SHADERS.length}`;
+    document.getElementById('art-share-fallback').hidden = true;
+    document.getElementById('art-notice').textContent = '';
+    document.querySelector('.background-panel-heading span:first-child').textContent = viewerOpen ? 'Studies' : 'Backgrounds';
+    const filter = document.getElementById('background-filter');
+    const filterLabel = viewerOpen ? 'Find a study' : 'Find a background';
+    filter.placeholder = filterLabel;
+    filter.setAttribute('aria-label', filterLabel);
+    document.getElementById('background-panel').setAttribute('aria-label', viewerOpen ? 'Choose a study' : 'Choose a background');
+    document.getElementById('background-status').textContent =
+      `${viewerOpen ? 'Study' : 'Background'}: ${shader.name}, ${currentIndex + 1} of ${SHADERS.length}`;
+    document.title = viewerOpen ? `${shader.name} | EverythingSings` : pageTitle;
+  }
+
+  function setViewer(open, updateUrl = true) {
+    const viewer = document.getElementById('art-viewer');
+    if (!viewer || (open && (!program || reducedMotion.matches))) return;
+    if (open === viewerOpen) return;
+    setPanel(false);
+    if (open) viewerScrollY = window.scrollY;
+    viewerOpen = open;
+    viewer.hidden = !open;
+    document.body.classList.toggle('art-viewing', open);
+    document.querySelectorAll('main, body > footer').forEach((element) => {
+      element.inert = open;
+      if (open) element.setAttribute('aria-hidden', 'true');
+      else element.removeAttribute('aria-hidden');
+    });
+    updateViewer();
+    if (updateUrl) writeViewerUrl(open);
+    if (open) viewer.focus({ preventScroll: true });
+    else {
+      window.scrollTo(0, viewerScrollY);
+      requestAnimationFrame(() => {
+        if (!viewerOpen) document.getElementById('art-enter').focus({ preventScroll: true });
+      });
+    }
+  }
+
+  function setPaused(next) {
+    if (paused === next) return;
+    paused = next;
+    document.querySelectorAll('#background-motion, #art-motion').forEach((button) => {
+      button.setAttribute('aria-pressed', paused ? 'true' : 'false');
+      button.textContent = button.id === 'art-motion'
+        ? (paused ? 'Play' : 'Pause') : (paused ? 'Resume motion' : 'Pause motion');
+    });
+    if (paused) {
+      pausedAt = performance.now();
+      cancelAnimationFrame(frame);
+      stopSensorListeners();
+    } else {
+      startedAt += performance.now() - pausedAt;
+      startSensorListeners();
+      lastFrameAt = performance.now();
+      if (!document.hidden && !reducedMotion.matches) frame = requestAnimationFrame(render);
+    }
+  }
+
+  function buildViewer() {
+    const entry = document.getElementById('art-enter');
+    if (!entry) return;
+    entry.closest('.art-entry').hidden = false;
+    entry.addEventListener('click', () => setViewer(true));
+    document.getElementById('art-exit').addEventListener('click', () => setViewer(false));
+    document.getElementById('art-choose').addEventListener('click', () => {
+      setPanel(document.getElementById('background-panel').hidden);
+    });
+    document.getElementById('art-prev').addEventListener('click', () => select(currentIndex - 1));
+    document.getElementById('art-next').addEventListener('click', () => select(currentIndex + 1));
+    document.getElementById('art-motion').addEventListener('click', () => setPaused(!paused));
+    document.getElementById('art-share').addEventListener('click', async () => {
+      const url = studyUrl().href;
+      try {
+        await navigator.clipboard.writeText(url);
+        if (!viewerOpen || studyUrl().href !== url) return;
+        document.getElementById('art-notice').textContent = 'Link copied';
+      } catch (error) {
+        if (!viewerOpen || studyUrl().href !== url) return;
+        document.getElementById('art-share-fallback').hidden = false;
+        const input = document.getElementById('art-share-url');
+        input.value = url;
+        input.focus();
+        input.select();
+      }
+    });
+    window.addEventListener('popstate', () => {
+      const index = initialIndex();
+      setViewer(new URL(window.location.href).searchParams.get('view') === 'art', false);
+      select(index);
+    });
+    if (new URL(window.location.href).searchParams.get('view') === 'art') setViewer(true, false);
   }
 
   async function select(index, attempts = 0) {
@@ -341,14 +476,19 @@
       bindGeometry(program);
       uniforms = {
         time: gl.getUniformLocation(program, 'u_time'),
-        resolution: gl.getUniformLocation(program, 'u_resolution')
+        resolution: gl.getUniformLocation(program, 'u_resolution'),
+        pointer: gl.getUniformLocation(program, 'u_pointer'),
+        impulse: gl.getUniformLocation(program, 'u_impulse')
       };
 
       currentIndex = targetIndex;
       activeProfile = generatedProfile(shader.id);
+      canvas.style.setProperty('--study-background-exposure', shader.fullRange ? '0.16' : '1');
+      canvas.style.setProperty('--study-view-exposure', shader.fullRange ? '1' : '4');
       savePreference(shader.id);
       updateControls();
-      if (paused) render(performance.now());
+      resize();
+      if (paused || reducedMotion.matches) render(paused ? pausedAt : performance.now());
     } catch (error) {
       console.warn(`Background "${shader.name}" unavailable:`, error);
       if (serial === requestSerial) await select(targetIndex + 1, attempts + 1);
@@ -358,7 +498,8 @@
   function resize() {
     if (!gl) return;
     const cssPixels = Math.max(1, window.innerWidth * window.innerHeight);
-    const pixelBudgetScale = Math.sqrt(MAX_RENDER_PIXELS / cssPixels);
+    const pixelBudget = SHADERS[currentIndex].renderPixels || MAX_RENDER_PIXELS;
+    const pixelBudgetScale = Math.sqrt(pixelBudget / cssPixels);
     const dpr = Math.min(window.devicePixelRatio || 1, 2, pixelBudgetScale);
     const width = Math.max(1, Math.round(window.innerWidth * dpr));
     const height = Math.max(1, Math.round(window.innerHeight * dpr));
@@ -367,6 +508,7 @@
       canvas.height = height;
       gl.viewport(0, 0, width, height);
       createRenderTarget(width, height);
+      if (program && paused) render(pausedAt);
     }
   }
 
@@ -541,6 +683,8 @@
       bindGeometry(program);
       if (uniforms.time !== null) gl.uniform1f(uniforms.time, (now - startedAt) / 1000);
       if (uniforms.resolution !== null) gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+      if (uniforms.pointer !== null) gl.uniform2f(uniforms.pointer, motion.position[0], motion.position[1]);
+      if (uniforms.impulse !== null) gl.uniform1f(uniforms.impulse, motion.impulse);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       if (compositing) {
@@ -561,7 +705,7 @@
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
     }
-    if (!paused) frame = requestAnimationFrame(render);
+    if (!paused && !document.hidden && !reducedMotion.matches) frame = requestAnimationFrame(render);
   }
 
   function setPanel(open, returnFocus = false) {
@@ -569,17 +713,21 @@
     const panel = document.getElementById('background-panel');
     if (!tab || !panel) return;
     tab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const choose = document.getElementById('art-choose');
+    if (choose) choose.setAttribute('aria-expanded', open ? 'true' : 'false');
     panel.hidden = !open;
     document.body.classList.toggle('background-panel-open', open);
     if (open) {
-      const active = panel.querySelector('.background-option.is-active');
+      const active = panel.querySelector('.background-option.is-active:not([hidden])')
+        || panel.querySelector('.background-option:not([hidden])')
+        || document.getElementById('background-filter');
       if (active) {
         active.focus({ preventScroll: true });
         const list = document.getElementById('background-list');
         revealActiveOption(list);
       }
     } else if (returnFocus) {
-      tab.focus({ preventScroll: true });
+      (viewerOpen ? choose : tab).focus({ preventScroll: true });
     }
   }
 
@@ -592,19 +740,26 @@
     const count = document.getElementById('background-count');
     if (count) count.textContent = `${SHADERS.length} studies`;
 
-    list.replaceChildren(...SHADERS.map((shader, index) => {
+    const galleryOrder = SHADERS.map((shader, index) => ({ shader, index }))
+      .sort((a, b) => Number(Boolean(b.shader.featured)) - Number(Boolean(a.shader.featured)));
+    list.replaceChildren(...galleryOrder.map(({ shader, index }) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'background-option';
       button.setAttribute('role', 'option');
       button.dataset.index = index.toString();
       button.dataset.name = shader.name.toLocaleLowerCase();
+      if (shader.featured) button.dataset.new = 'true';
       button.innerHTML = `<span class="background-swatch swatch-${shader.id}" aria-hidden="true"></span><span>${shader.name}</span>`;
-      button.addEventListener('click', () => select(index));
+      const chooseStudy = async () => {
+        await select(index);
+        if (viewerOpen) setPanel(false, true);
+      };
+      button.addEventListener('click', chooseStudy);
       button.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          select(index);
+          chooseStudy();
           return;
         }
         if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
@@ -667,31 +822,34 @@
       select(currentIndex + offset);
     });
     setupMotionInput();
-    document.getElementById('background-motion').addEventListener('click', (event) => {
-      const button = event.currentTarget;
-      paused = !paused;
-      button.setAttribute('aria-pressed', paused ? 'true' : 'false');
-      button.textContent = paused ? 'Resume motion' : 'Pause motion';
-      if (paused) {
-        pausedAt = performance.now();
-        cancelAnimationFrame(frame);
-        stopSensorListeners();
-      } else {
-        startedAt += performance.now() - pausedAt;
-        startSensorListeners();
-        lastFrameAt = performance.now();
-        frame = requestAnimationFrame(render);
-      }
-    });
+    document.getElementById('background-motion').addEventListener('click', () => setPaused(!paused));
 
     document.addEventListener('pointerdown', (event) => {
-      if (!panel.hidden && !panel.contains(event.target) && !tab.contains(event.target)) setPanel(false);
+      if (!panel.hidden && !panel.contains(event.target) && !tab.contains(event.target)
+        && !event.target.closest('#art-choose')) setPanel(false);
     });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && !panel.hidden) {
         event.preventDefault();
         setPanel(false, true);
         return;
+      }
+      if (viewerOpen && event.key === 'Escape') {
+        event.preventDefault();
+        setViewer(false);
+        return;
+      }
+      if (viewerOpen && panel.hidden && !event.target.closest('input, textarea, select')) {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          select(currentIndex + (event.key === 'ArrowRight' ? 1 : -1));
+          return;
+        }
+        if (event.key === ' ' && !event.target.closest('button, a')) {
+          event.preventDefault();
+          setPaused(!paused);
+          return;
+        }
       }
       if (event.target.closest('input, textarea, select, button, a')) return;
       if (event.key === 'ArrowRight') select(currentIndex + 1);
@@ -700,12 +858,16 @@
   }
 
   function initialIndex() {
+    const sharedId = new URL(window.location.href).searchParams.get('study');
+    const sharedIndex = SHADERS.findIndex((shader) => shader.id === sharedId);
+    if (sharedIndex >= 0) return sharedIndex;
     const savedId = readPreference(STORAGE_KEY);
     const savedIndex = SHADERS.findIndex((shader) => shader.id === savedId);
     if (savedIndex >= 0) return savedIndex;
     const legacy = Number.parseInt(readPreference(LEGACY_STORAGE_KEY), 10);
     if (Number.isInteger(legacy) && legacy >= 0 && legacy < 11) return legacy;
-    return Math.floor(Math.random() * SHADERS.length);
+    const featured = SHADERS.map((shader, index) => shader.featured ? index : -1).filter((index) => index >= 0);
+    return featured.length ? featured[Math.floor(Math.random() * featured.length)] : Math.floor(Math.random() * SHADERS.length);
   }
 
   async function init() {
@@ -717,10 +879,17 @@
     buildControls();
     resize();
     await select(initialIndex());
+    if (!program) {
+      document.documentElement.classList.remove('webgl-backgrounds');
+      return;
+    }
+    buildViewer();
     frame = requestAnimationFrame(render);
     window.addEventListener('resize', resize, { passive: true });
     canvas.addEventListener('webglcontextlost', (event) => {
       event.preventDefault();
+      setViewer(false);
+      document.documentElement.classList.remove('webgl-backgrounds');
       cancelAnimationFrame(frame);
       program = null;
       compositorProgram = null;
@@ -734,6 +903,7 @@
       resize();
       startedAt = performance.now();
       await select(currentIndex);
+      document.documentElement.classList.toggle('webgl-backgrounds', Boolean(program) && !reducedMotion.matches);
       if (!paused && !reducedMotion.matches && !document.hidden) frame = requestAnimationFrame(render);
     });
     document.addEventListener('visibilitychange', () => {
@@ -748,12 +918,17 @@
     });
     reducedMotion.addEventListener('change', (event) => {
       if (event.matches) {
+        setViewer(false);
+        document.documentElement.classList.remove('webgl-backgrounds');
         cancelAnimationFrame(frame);
         stopSensorListeners();
-      } else if (!paused && !document.hidden) {
-        startSensorListeners();
-        lastFrameAt = performance.now();
-        frame = requestAnimationFrame(render);
+      } else {
+        document.documentElement.classList.add('webgl-backgrounds');
+        if (!paused && !document.hidden) {
+          startSensorListeners();
+          lastFrameAt = performance.now();
+          frame = requestAnimationFrame(render);
+        }
       }
     });
   }

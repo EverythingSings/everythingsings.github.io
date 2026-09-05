@@ -58,6 +58,8 @@
   height: 100%;
   z-index: -1;
   pointer-events: none;
+  filter: brightness(var(--study-background-exposure, 1));
+  transition: filter 450ms ease;
 }
 
 /* Background gallery: a persistent edge tab with a compact direct selector. */
@@ -73,6 +75,18 @@
 
 .webgl-backgrounds #background-controls {
   display: block;
+}
+
+/* Every animated background is darkened behind the links, including in light OS themes. */
+:root.webgl-backgrounds {
+  --color-bg: #0d0d0d;
+  --color-text: #e8e8e8;
+  --color-text-muted: #a0a0a0;
+  --color-accent: #fff;
+  --color-link: #e8e8e8;
+  --color-link-hover: #fff;
+  --color-border: #333;
+  color-scheme: dark;
 }
 
 #background-tab,
@@ -230,6 +244,25 @@
 .background-option[hidden] {
   display: none;
 }
+
+.background-option[data-new] {
+  border-color: rgba(161, 189, 195, 0.2);
+}
+
+.background-option[data-new] .background-swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 5px;
+}
+
+.background-swatch.swatch-lacuna { background: radial-gradient(ellipse at 45% 45%, #080c10 0 25%, #b9b7a7 29%, #577080 50%, #0b0e13 60%); }
+.background-swatch.swatch-silkcurrent { background: repeating-linear-gradient(155deg, #141f27 0 2px, #7d8b7d 3px, #956f4e 4px, #0e1923 5px 7px); }
+.background-swatch.swatch-tidalmemory { background: repeating-radial-gradient(ellipse at 10% 60%, #254348 0 2px, #a47844 3px, #58432a 4px 6px); }
+.background-swatch.swatch-orbitalloom { background: radial-gradient(ellipse at 60% 30%, transparent 30%, #a77b50 35% 40%, transparent 45%), radial-gradient(ellipse at 30% 65%, #111923 30%, #6e949c 35% 40%, #111923 45%); }
+.background-swatch.swatch-prismaticfold { background: repeating-linear-gradient(95deg, #0c151e 0 3px, #397978 4px, #785b82 5px, #0c151e 7px 9px); }
+.background-swatch.swatch-noctiluca { background: radial-gradient(ellipse at 35% 40%, #12262c 0 15%, #3f929a 20%, #0c1520 30% 100%); }
+.background-swatch.swatch-aperturechoir { background: radial-gradient(circle at 50% 50%, #071114 0 15%, #578587 20%, #1d353a 35%, #937343 48%, #081216 55%); }
+.background-swatch.swatch-palimpsest { background: repeating-radial-gradient(ellipse at 30% 65%, #bdb5a1 0 2px, #415052 3px, #bdb5a1 4px 6px); }
 
 .background-swatch {
   width: 1.1rem;
@@ -836,6 +869,328 @@ a:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Immersive study viewer. All links remain in the server-rendered page. */
+.art-entry {
+  display: none;
+  margin: -1rem 0 2.5rem;
+  text-align: center;
+}
+
+.webgl-backgrounds .art-entry:not([hidden]) {
+  display: block;
+}
+
+#art-enter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2.5rem;
+  min-height: 52px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--color-text-muted);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+#art-enter:hover {
+  border-color: var(--color-accent);
+  background: rgba(128, 128, 128, 0.12);
+}
+
+body > main,
+body > footer {
+  transition: opacity 350ms ease, visibility 0s;
+}
+
+body.art-viewing {
+  overflow: hidden;
+}
+
+.art-viewing > main,
+.art-viewing > footer {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 350ms ease, visibility 0s 350ms;
+}
+
+.art-viewing #shader-canvas {
+  z-index: 0;
+  filter: brightness(var(--study-view-exposure, 4));
+}
+
+#art-viewer {
+  --color-accent: #f2f2f2;
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  color: #f2f2f2;
+  pointer-events: none;
+  outline: none;
+  animation: art-arrival 450ms ease both;
+}
+
+#art-viewer[hidden],
+#art-share-fallback[hidden] {
+  display: none;
+}
+
+.art-viewer-top,
+.art-viewer-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.5rem max(1.75rem, env(safe-area-inset-right)) 1.5rem max(1.75rem, env(safe-area-inset-left));
+}
+
+.art-viewer-top {
+  top: 0;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  background: linear-gradient(rgba(0, 0, 0, 0.5), transparent);
+}
+
+.art-signature {
+  color: #ddd;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
+  background: rgba(8, 10, 13, 0.72);
+}
+
+.art-viewer-bottom {
+  bottom: 0;
+  flex-wrap: wrap;
+  padding-top: 3rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+}
+
+#art-viewer button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 160ms ease;
+}
+
+#art-viewer button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+#art-exit {
+  padding: 0.5rem 0.75rem;
+  margin-left: -0.75rem;
+}
+
+#art-viewer #art-exit,
+#art-viewer #art-choose,
+#art-viewer #art-share {
+  background: rgba(8, 10, 13, 0.78);
+}
+
+#art-viewer #art-exit:hover,
+#art-viewer #art-choose:hover,
+#art-viewer #art-share:hover {
+  background: rgba(28, 32, 37, 0.94);
+}
+
+#art-choose {
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  margin-left: -0.75rem;
+  text-align: left;
+}
+
+.art-eyebrow {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: #aaa;
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.art-title-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+#art-title {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+
+.art-browse {
+  color: #aaa;
+  font-size: 0.6875rem;
+}
+
+.art-actions,
+.art-transport {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.art-actions {
+  gap: 0.75rem;
+}
+
+.art-transport {
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.55);
+  pointer-events: auto;
+}
+
+#art-viewer .art-transport button {
+  min-width: 44px;
+  border-radius: 50%;
+}
+
+#art-viewer #art-motion {
+  min-width: 64px;
+  border-radius: 999px;
+}
+
+#art-share {
+  min-width: 80px;
+  padding: 0.5rem 0.75rem;
+}
+
+#art-share-fallback {
+  flex-basis: 100%;
+  pointer-events: auto;
+  font-size: 0.75rem;
+}
+
+#art-share-url {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.75rem;
+  border: 1px solid #888;
+  border-radius: 6px;
+  color: #eee;
+  background: #111;
+  font: inherit;
+  font-size: 16px;
+}
+
+#art-notice {
+  position: absolute;
+  right: max(1.75rem, env(safe-area-inset-right));
+  bottom: 0.3rem;
+  font-size: 0.6875rem;
+  color: #ccc;
+}
+
+.webgl-backgrounds #background-controls {
+  --color-text: #eee;
+  --color-text-muted: #aaa;
+  --color-accent: #fff;
+}
+
+.art-viewing #background-tab {
+  display: none;
+}
+
+.art-viewing .background-option {
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.art-viewing #background-controls {
+  inset: auto 0 0 auto;
+  transform: none;
+}
+
+.art-viewing #background-panel {
+  position: fixed;
+  top: auto;
+  bottom: max(7rem, calc(env(safe-area-inset-bottom) + 6rem));
+  right: 1.5rem;
+  max-height: calc(100dvh - 12rem);
+  transform: none;
+}
+
+@keyframes art-arrival {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .art-viewer-top,
+  .art-viewer-bottom {
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+    gap: 1rem;
+  }
+
+  .art-viewer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .art-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .art-viewing #background-panel {
+    right: 0.75rem;
+    bottom: max(11rem, calc(env(safe-area-inset-bottom) + 10rem));
+    max-height: calc(100dvh - 15.5rem);
+  }
+
+  #art-share-fallback {
+    width: 100%;
+  }
+}
+
+@media (max-height: 480px) and (min-width: 500px) {
+  .art-viewer-bottom {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .art-actions {
+    width: auto;
+  }
+
+  .art-viewing #background-panel {
+    top: 0.5rem;
+    bottom: auto;
+    max-height: calc(100dvh - 7rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .webgl-backgrounds .art-entry:not([hidden]) {
+    display: none;
+  }
 }
 
 /* Print styles */
