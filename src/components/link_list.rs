@@ -38,6 +38,11 @@ const LINKS: &[LinkEntry] = &[
         description: Some("Physical prints and merchandise on Redbubble"),
     },
     LinkEntry {
+        label: "The Near Future",
+        href: "https://www.thenearfuturegame.com",
+        description: Some("Play the game"),
+    },
+    LinkEntry {
         label: "GitHub",
         href: "https://github.com/EverythingSings",
         description: Some("Code is art"),
@@ -122,8 +127,8 @@ mod tests {
     }
 
     #[test]
-    fn list_has_seven_links() {
-        assert_eq!(LINKS.len(), 7);
+    fn list_has_eight_links() {
+        assert_eq!(LINKS.len(), 8);
     }
 
     #[test]
@@ -185,6 +190,7 @@ mod tests {
         let expected = [
             "Networked Art",
             "Shop",
+            "The Near Future",
             "GitHub",
             "X",
             "Music",
@@ -194,6 +200,12 @@ mod tests {
         for (i, link) in LINKS.iter().enumerate() {
             assert_eq!(link.label, expected[i]);
         }
+    }
+
+    #[test]
+    fn near_future_link_present() {
+        let html = render_list();
+        assert!(html.contains("thenearfuturegame.com"));
     }
 
     #[test]
