@@ -226,6 +226,7 @@ EverythingSings is a digital artist and creative technologist. This site serves 
 ## Links
 
 - Art Gallery: {url}/art/
+- YouTube: https://www.youtube.com/@EverythingSings
 - Music: https://music.apple.com/artist/1704503690
 - Digital editions (scarce): https://networked.art/everything
 - Physical prints and merchandise: https://bedim.redbubble.com

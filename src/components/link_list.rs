@@ -23,7 +23,7 @@ pub struct LinkEntry {
     pub description: Option<&'static str>,
 }
 
-/// The seven canonical profile links, in display order.
+/// The canonical profile links, in display order.
 ///
 /// Intentionally short. Anything more should live on its own page or sub-domain.
 const LINKS: &[LinkEntry] = &[
@@ -51,6 +51,11 @@ const LINKS: &[LinkEntry] = &[
         label: "X",
         href: "https://x.com/everythingSung",
         description: Some("Follow on X"),
+    },
+    LinkEntry {
+        label: "YouTube",
+        href: "https://www.youtube.com/@EverythingSings",
+        description: Some("Watch on YouTube"),
     },
     LinkEntry {
         label: "Music",
@@ -127,8 +132,8 @@ mod tests {
     }
 
     #[test]
-    fn list_has_eight_links() {
-        assert_eq!(LINKS.len(), 8);
+    fn list_has_nine_links() {
+        assert_eq!(LINKS.len(), 9);
     }
 
     #[test]
@@ -193,6 +198,7 @@ mod tests {
             "The Near Future",
             "GitHub",
             "X",
+            "YouTube",
             "Music",
             "Midjourney",
             "Book Reviews",
