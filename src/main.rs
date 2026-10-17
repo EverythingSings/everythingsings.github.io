@@ -230,6 +230,7 @@ EverythingSings is a digital artist and creative technologist. This site serves 
 - Music: https://music.apple.com/artist/1704503690
 - Digital editions (scarce): https://networked.art/everything
 - Physical prints and merchandise: https://bedim.redbubble.com
+- Ask Me Anything: https://unsaid.fyi/everythingSung?card=ama-1792261910016
 - The Near Future game: https://www.thenearfuturegame.com
 "#,
         url = SITE_URL

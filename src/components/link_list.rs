@@ -38,6 +38,11 @@ const LINKS: &[LinkEntry] = &[
         description: Some("Physical prints and merchandise on Redbubble"),
     },
     LinkEntry {
+        label: "Ask Me Anything",
+        href: "https://unsaid.fyi/everythingSung?card=ama-1792261910016",
+        description: Some("Ask me a question on Unsaid"),
+    },
+    LinkEntry {
         label: "The Near Future",
         href: "https://www.thenearfuturegame.com",
         description: Some("Play the game"),
@@ -132,8 +137,8 @@ mod tests {
     }
 
     #[test]
-    fn list_has_nine_links() {
-        assert_eq!(LINKS.len(), 9);
+    fn list_has_ten_links() {
+        assert_eq!(LINKS.len(), 10);
     }
 
     #[test]
@@ -195,6 +200,7 @@ mod tests {
         let expected = [
             "Networked Art",
             "Shop",
+            "Ask Me Anything",
             "The Near Future",
             "GitHub",
             "X",
