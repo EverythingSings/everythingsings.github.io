@@ -43,9 +43,9 @@ const LINKS: &[LinkEntry] = &[
         description: Some("Ask me a question on Unsaid"),
     },
     LinkEntry {
-        label: "The Near Future",
-        href: "https://www.thenearfuturegame.com",
-        description: Some("Play the game"),
+        label: "Spawn",
+        href: "https://www.spawn.co/@everything",
+        description: Some("Play my games on Spawn"),
     },
     LinkEntry {
         label: "GitHub",
@@ -201,7 +201,7 @@ mod tests {
             "Networked Art",
             "Shop",
             "Ask Me Anything",
-            "The Near Future",
+            "Spawn",
             "GitHub",
             "X",
             "YouTube",
@@ -215,9 +215,9 @@ mod tests {
     }
 
     #[test]
-    fn near_future_link_present() {
+    fn spawn_link_present() {
         let html = render_list();
-        assert!(html.contains("thenearfuturegame.com"));
+        assert!(html.contains("https://www.spawn.co/@everything"));
     }
 
     #[test]
