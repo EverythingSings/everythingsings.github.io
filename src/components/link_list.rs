@@ -48,6 +48,11 @@ const LINKS: &[LinkEntry] = &[
         description: Some("Play my games on Spawn"),
     },
     LinkEntry {
+        label: "Discord",
+        href: "https://discord.gg/8Q8w2CBhZZ",
+        description: Some("Join my Discord community"),
+    },
+    LinkEntry {
         label: "GitHub",
         href: "https://github.com/EverythingSings",
         description: Some("Code is art"),
@@ -137,8 +142,8 @@ mod tests {
     }
 
     #[test]
-    fn list_has_ten_links() {
-        assert_eq!(LINKS.len(), 10);
+    fn list_has_eleven_links() {
+        assert_eq!(LINKS.len(), 11);
     }
 
     #[test]
@@ -202,6 +207,7 @@ mod tests {
             "Shop",
             "Ask Me Anything",
             "Spawn",
+            "Discord",
             "GitHub",
             "X",
             "YouTube",

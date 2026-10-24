@@ -232,6 +232,7 @@ EverythingSings is a digital artist and creative technologist. This site serves 
 - Physical prints and merchandise: https://bedim.redbubble.com
 - Ask Me Anything: https://unsaid.fyi/everythingSung?card=ama-1792261910016
 - Spawn games: https://www.spawn.co/@everything
+- Discord community: https://discord.gg/8Q8w2CBhZZ
 "#,
         url = SITE_URL
     );
