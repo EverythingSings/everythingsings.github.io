@@ -80,6 +80,7 @@ pub fn generate_head_html_for(meta: &PageMeta) -> String {
 <script type="application/ld+json">{json_ld}</script>
 <link rel="stylesheet" href="/main.css?v=2026-09-05-02" />
 <script src="/js/shader-bg.js?v=2026-09-05-02" defer></script>
+<script src="/js/track.js?v=2026-11-13" defer></script>
 </head>"#,
         title = meta.title,
         description = meta.description,
@@ -164,6 +165,12 @@ mod tests {
             html.contains(SITE_NAME),
             "Title should contain site name"
         );
+    }
+
+    #[test]
+    fn head_loads_analytics_tracker() {
+        let html = generate_head_html();
+        assert!(html.contains("/js/track.js"), "Head should load the analytics tracker");
     }
 
     #[test]

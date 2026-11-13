@@ -6,7 +6,7 @@
 use everythingsings::art::{discover_series, ArtSeries};
 use everythingsings::components::{
     generate_head_html, generate_head_html_for, ArtIndexPage, ArtIndexPageProps, ArtSeriesPage,
-    ArtSeriesPageProps, PageMeta, SigilPage,
+    ArtSeriesPageProps, PageMeta, PrivacyPage, SigilPage,
 };
 use everythingsings::config::{SITE_NAME, SITE_URL};
 use everythingsings::App;
@@ -144,6 +144,39 @@ fn render_sigil() -> String {
     )
 }
 
+/// Generates the privacy page HTML.
+fn render_privacy() -> String {
+    let json_ld = format!(
+        r#"{{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Privacy | {name}",
+  "url": "{url}/privacy/"
+}}"#,
+        name = SITE_NAME,
+        url = SITE_URL,
+    );
+
+    let head_html = generate_head_html_for(&PageMeta {
+        title: format!("Privacy | {}", SITE_NAME),
+        description: "How this site measures visits without identifying anyone".to_string(),
+        canonical_url: format!("{}/privacy/", SITE_URL),
+        og_type: "website".to_string(),
+        og_image: String::new(),
+        json_ld,
+    });
+
+    let body_html = PrivacyPage().to_html();
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+{head_html}
+{body_html}
+</html>"#
+    )
+}
+
 /// Generates sitemap.xml content including art pages.
 fn generate_sitemap(series: &[ArtSeries]) -> String {
     let mut urls = vec![
@@ -170,6 +203,14 @@ fn generate_sitemap(series: &[ArtSeries]) -> String {
     <loc>{}/sigil/</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
+  </url>"#,
+        SITE_URL
+    ));
+    urls.push(format!(
+        r#"  <url>
+    <loc>{}/privacy/</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>"#,
         SITE_URL
     ));
@@ -331,6 +372,13 @@ fn generate_static_site() -> std::io::Result<()> {
     let sigil_path = sigil_dir.join("index.html");
     fs::write(&sigil_path, render_sigil())?;
     println!("Generated: {}", sigil_path.display());
+
+    // Generate privacy page
+    let privacy_dir = output_dir.join("privacy");
+    fs::create_dir_all(&privacy_dir)?;
+    let privacy_path = privacy_dir.join("index.html");
+    fs::write(&privacy_path, render_privacy())?;
+    println!("Generated: {}", privacy_path.display());
 
     // Discover and generate art pages
     let series = discover_series(public_dir);

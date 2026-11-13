@@ -16,6 +16,7 @@ mod background_gallery;
 mod head;
 mod link_list;
 mod nav;
+mod privacy;
 mod profile_card;
 mod sigil;
 
@@ -26,5 +27,6 @@ pub use background_gallery::BackgroundGallery;
 pub use head::{generate_head_html, generate_head_html_for, Head, PageMeta};
 pub use link_list::LinkList;
 pub use nav::Nav;
+pub use privacy::PrivacyPage;
 pub use profile_card::ProfileCard;
 pub use sigil::SigilPage;

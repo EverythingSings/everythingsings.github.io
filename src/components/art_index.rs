@@ -57,7 +57,7 @@ pub fn ArtIndexPage(series: Vec<ArtSeries>) -> impl IntoView {
                     {series.iter().map(render_series_card).collect::<Vec<_>>()}
                 </div>
             </main>
-            <footer></footer>
+            <footer><a href="/privacy/">"Privacy"</a></footer>
         </body>
     }
 }

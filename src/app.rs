@@ -43,7 +43,7 @@ pub fn Body() -> impl IntoView {
                 <ArtEntry />
                 <LinkList />
             </main>
-            <footer></footer>
+            <footer><a href="/privacy/">"Privacy"</a></footer>
         </body>
     }
 }
@@ -92,6 +92,12 @@ mod tests {
             html.contains("<main"),
             "Body should contain <main> element"
         );
+    }
+
+    #[test]
+    fn footer_links_to_privacy_page() {
+        let html = render(Body());
+        assert!(html.contains("href=\"/privacy/\""));
     }
 
     #[test]
